@@ -5,27 +5,93 @@
 
     <StackLayout>
         <Button Text=".." Clicked="OnParentFolderClick"/>
-        <CollectionView x:Name="collectionView">
+        <CollectionView x:Name="dirView"
+                        VerticalOptions="StartAndExpand">
             <CollectionView.ItemTemplate>
                 <DataTemplate>
                     <Grid Padding="30">
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="auto" />
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <Button Grid.Column="0"
                                 Text="{Binding FileInfo.Name}"
                                 Command="{Binding OnClick}"
                                 FontAttributes="Bold" />
+                        <Image Grid.Column="1" Source="{Binding ImagePath}" Aspect="Center"/>
+                        <Button Grid.Column="2"
+                                Text="Download"
+                                Command="{Binding OnDownload}"
+                                FontAttributes="Bold" />
                     </Grid>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
         </CollectionView>
-
+        <StackLayout VerticalOptions="StartAndExpand">
+            <Label Text="Transfers"/>
+            <Grid Padding="30">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Label Grid.Column="0" Text="Source File"/>
+                <Label Grid.Column="1" Text="Status"/>
+                <Label Grid.Column="2" Text="Progress"/>
+                <Label Grid.Column="3" Text="Speed"/>
+                <Label Grid.Column="0" Text=""/>
+            </Grid>
+            <CollectionView x:Name="transView"
+                            VerticalOptions="StartAndExpand"
+                            ItemsLayout="VerticalGrid, 1">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Padding="30">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Label 
+                                Text="{Binding Title}"
+                                Grid.Column="0"
+                                FontAttributes="Bold" />
+                            <Label 
+                                Text="{Binding Status}"
+                                Grid.Column="1"
+                                FontAttributes="Bold" />
+                            <Label 
+                                Text="{Binding Progress}"
+                                Grid.Column="2"
+                                FontAttributes="Bold" />
+                            <Label 
+                                Text="{Binding TransSpeed}"
+                                Grid.Column="3"
+                                FontAttributes="Bold" />
+                            <Button 
+                                Text="Cancel"
+                                Grid.Column="4"
+                                Command="{Binding OnCancel}"
+                                FontAttributes="Bold"/>
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </StackLayout>
     </StackLayout>
     
 </ContentPage>

@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Security.Cryptography;
+using Renci.SshNet;
 using WinSCP;
 
 namespace DirectSFTP
@@ -9,16 +10,17 @@ namespace DirectSFTP
         Finished,
         Progress,
         Cancelled,
-        Error
+        Error,
+        Created
     }
     public class SFTP
     {
         private static readonly object lockObj = new();
         private static SFTP instance;
         private static int Id = 0;
-        private Session session;
+        private WinSCP.Session session;
         private static bool working = false;
-        public static int curId { get; private set; } = 0;
+        public static TransferInfo curTrans { get; private set; } = null;
         private static bool cancel = false;
         public static string CurDir = "/";
 
@@ -27,7 +29,7 @@ namespace DirectSFTP
         public List<TransferInfo> Transfers { get; private set; }
 
         private SFTP() {
-            session = new Session();
+            session = new WinSCP.Session();
             TransferEvents = new();
             Transfers = new();
         }
@@ -41,13 +43,14 @@ namespace DirectSFTP
             return instance;
         }
 
-        public Session GetSession()
+        public WinSCP.Session GetSession()
         {
             lock (lockObj) { return  session; }
         }
 
         public async void Connect(string host, int port, string user, string pswd)
         {
+           
             await Task.Run(() => {
                 SessionOptions sessionOptions = new()
                 {
@@ -61,10 +64,23 @@ namespace DirectSFTP
 
                 session.FileTransferProgress += (a, b) =>
                 {
+                    curTrans.Progress = b.OverallProgress;
+                    curTrans.TransSpeed = b.CPS/1000000.0; // to MB
+                    if (curTrans.Status == "Queued")
+                    {
+                        if (curTrans.Type==TransferType.Download) curTrans.Status = "Downloading";
+                        else curTrans.Status = "Uploading";
+                    }
+
                     if (cancel)
                     {
                         cancel = false;
+                        TransferEvents[curTrans.Id]?.Invoke(curTrans, new(curTrans.Id, TransferEventType.Cancelled));
                         b.Cancel = true;
+                    }
+                    else
+                    {
+                        TransferEvents[curTrans.Id]?.Invoke(curTrans, new(curTrans.Id, TransferEventType.Progress));
                     }
                 };
 
@@ -88,9 +104,16 @@ namespace DirectSFTP
         {
             if (session == null) throw new Exception("No session");
 
-            if (mask == null && !thumbnails)
+            if (!thumbnails)
             {
-                mask = "*|.*/;.*";
+                if (mask == null)
+                {
+                    mask = "* | .* ; .*/";
+                }
+                else
+                {
+                    mask += " |  .* ; .*/";
+                }
             }
 
             TransferInfo newTransfer = new(Id++)
@@ -99,6 +122,7 @@ namespace DirectSFTP
                    TargetPath = target,
                    Thumbnails = thumbnails,
                    Mask = mask,
+                   Title = source,
             };
 
             Transfers.Add(newTransfer);
@@ -114,8 +138,12 @@ namespace DirectSFTP
         public TransferInfo EnqueueFileDownload(string source, string target)
         {
             string pathOnly = RemoteGetDirName(source);
-            string nameOnly = Path.GetFileName(source);
-            return EnqueueFolderDownload(pathOnly, target, false, nameOnly);
+            string nameOnly = RemoteGetFileName(source);
+            Debug.WriteLine("Created download fo file " + nameOnly + " in " + pathOnly);
+            var res = EnqueueFolderDownload(pathOnly, target, false, nameOnly);
+            res.SingleFile = true;
+            res.Title = source;
+            return res;
         }
 
         private async void ContinueWork()
@@ -128,18 +156,18 @@ namespace DirectSFTP
                 return;
             }
 
-            
-
             var curTransfer = Transfers.First();
             Transfers.RemoveAt(0);
 
             working = true;
-            curId = curTransfer.Id;
+            curTrans = curTransfer;
 
-            Debug.WriteLine("Started transferring " + curTransfer.SourcePath + " with id " + curTransfer.Id);
+            Debug.WriteLine("Started transferring " + curTransfer.SourcePath + " with id " + curTransfer.Id + " into " + curTransfer.TargetPath);
 
             if (curTransfer.Type == TransferType.Download)
             {
+                if (!Directory.Exists(curTransfer.TargetPath)) Directory.CreateDirectory(curTransfer.TargetPath);
+                
                 TransferOptions options = new() {
                     FileMask = curTransfer.Mask
                 };
@@ -151,9 +179,11 @@ namespace DirectSFTP
                         options
                     )).ContinueWith(t =>
                     {
-                        Debug.WriteLine("Finished " + curTransfer.Id);
                         TransferEvents[curTransfer.Id]?.Invoke(curTransfer, new(curTransfer.Id, TransferEventType.Finished));
                         TransferEvents.Remove(curTransfer.Id);
+                        working = false;
+                        curTrans = null;
+                        ContinueWork();
                     });
                 
                 await res;
@@ -162,7 +192,7 @@ namespace DirectSFTP
 
         public void CancelTransfer(int id)
         {
-            if (working && curId == id)
+            if (working && curTrans.Id == id)
             {
                 cancel = true;
             }
@@ -173,18 +203,35 @@ namespace DirectSFTP
             }
         }
 
-        // get the directory name (.../a/b -> .../a ; .../a/b.ext -> .../a)
-        public string RemoteGetDirName(string path)
+        // get the directory name for the server path (.../a/b -> .../a ; .../a/b.ext -> .../a)
+        public static string RemoteGetDirName(string path)
         {
             if (path == null || path == "/") return path;
 
-            return path[..path.LastIndexOf('/')];
+            path = path[..path.LastIndexOf('/')];
+
+            if (path == "") return "/";
+            else return path;
         }
 
-        public string RemoteGetFileName(string path)
+        // get the file name from server path
+        public static string RemoteGetFileName(string path)
         {
             if (path == null || path == "/") return path;
-            return path[(path.LastIndexOf('/')+1)..];
+            path = path[(path.LastIndexOf('/')+1)..];
+
+            return path;
+        }
+        // return the local dir of thumbnail folder for given directory path
+        public static string GetThumbnailFolder(string dir)
+        {
+            string path = Path.Join(Path.GetTempPath(), "DirectSFTP");
+            return Path.Join(path,dir.Replace("/", "")+".dthumb");
+        }
+        // join path with fileName
+        public static string RemoteJoinPath(string path, string name)
+        {
+            return path+ "/" + name;
         }
     }
 }

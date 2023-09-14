@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using WinSCP;
+﻿using WinSCP;
 
 namespace DirectSFTP
 {
@@ -13,7 +8,7 @@ namespace DirectSFTP
         public RemoteFileInfo FileInfo { get; set; }
         public string ImagePath { get; set; }
         public Command OnClick { get; set; }
-
+        public Command OnDownload { get; set; }
         public void UpdatedImg()
         {
             if (!imgUpdated)

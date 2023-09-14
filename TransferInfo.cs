@@ -21,13 +21,28 @@ namespace DirectSFTP
         public string TargetPath { get; set; }
         public string SourcePath { get; set; }
         public int Id { get; private set; }
-        public float Progress { get; set; }
-        
+        public double Progress { get; set; }
+        public double TransSpeed { get; set; }
+        public string Status { get; set; }
+        public Command OnCancel { get; set; }
+        public Command OnDownload { get; set; }
+        public bool SingleFile { get; set; }
+        public string Title { get; set; }
         public TransferInfo(int id)
         {
             Id = id;
             Progress = 0;
+            Status = "Queued";
+            SingleFile = false;
         }
+
+        public void UpdateProgress()
+        {
+            OnPropertyChanged(nameof(TransSpeed));
+            OnPropertyChanged(nameof(Progress));
+            OnPropertyChanged(nameof(Status));
+        }
+       
         
     }
 }
