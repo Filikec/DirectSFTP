@@ -43,12 +43,14 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <Label Grid.Column="0" Text="Source File"/>
                 <Label Grid.Column="1" Text="Status"/>
                 <Label Grid.Column="2" Text="Progress"/>
                 <Label Grid.Column="3" Text="Speed"/>
-                <Label Grid.Column="0" Text=""/>
+                <Label Grid.Column="4" Text="Size"/>
+                <Label Grid.Column="5" Text=""/>
             </Grid>
             <CollectionView x:Name="transView"
                             VerticalOptions="StartAndExpand"
@@ -60,6 +62,7 @@
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
@@ -82,9 +85,13 @@
                                 Text="{Binding TransSpeed}"
                                 Grid.Column="3"
                                 FontAttributes="Bold" />
+                            <Label 
+                                Text="{Binding Size}"
+                                Grid.Column="4"
+                                FontAttributes="Bold" />
                             <Button 
                                 Text="Cancel"
-                                Grid.Column="4"
+                                Grid.Column="5"
                                 Command="{Binding OnCancel}"
                                 FontAttributes="Bold"/>
                         </Grid>

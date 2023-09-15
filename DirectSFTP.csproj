@@ -57,7 +57,6 @@
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="7.0.0" />
 		<PackageReference Include="MSTest.TestAdapter" Version="3.1.1" />
 		<PackageReference Include="SSH.NET" Version="2020.0.2" />
-		<PackageReference Include="WinSCP" Version="6.1.1" />
 	</ItemGroup>
 
 </Project>

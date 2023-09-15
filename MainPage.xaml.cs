@@ -1,6 +1,7 @@
-﻿using System.Collections.ObjectModel;
+﻿using System.Collections;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
-using WinSCP;
+using Renci.SshNet.Sftp;
 
 namespace DirectSFTP;
 
@@ -23,8 +24,11 @@ public partial class MainPage : ContentPage
 			}
 		};
 		sftp = SFTP.GetInstance();
-		Task.Run(()=>UpdateDir(SFTP.CurDir));
-	}
+
+		if (SFTP.IsConnected) Task.Run(() => { UpdateDir(SFTP.CurDir); });
+		else SFTP.Connected += (a, b) => Task.Run(() => { UpdateDir(SFTP.CurDir); });
+
+    }
 
 	private void OnParentFolderClick(object sender, EventArgs e)
 	{
@@ -39,7 +43,7 @@ public partial class MainPage : ContentPage
 
 	private async void UpdateDir(string dir)
 	{
-		RemoteDirectoryInfo files;
+		IEnumerable<SftpFile> files;
 		try
 		{
             files = await sftp.ListDir(dir);
@@ -55,7 +59,7 @@ public partial class MainPage : ContentPage
         dirElements.Clear();
 		string thumbFolder = SFTP.GetThumbnailFolder(dir);
 
-		foreach (RemoteFileInfo file in files.Files)
+		foreach (var file in files)
 		{
 			if (file.Name == ".dthumb")
 			{
@@ -65,20 +69,17 @@ public partial class MainPage : ContentPage
             }
 			if (file.Name.StartsWith('.')) continue;
 
-			if (file.IsDirectory == false) Debug.WriteLine(Path.Join(thumbFolder, file.Name)+ " < img name");
 			dirElements.Add(new()
 			{
 				FileInfo = file,
-				ImagePath = file.IsDirectory ? "" : Path.Join(thumbFolder, file.Name),
+				ImagePath = file.IsDirectory ? "" : Path.Join(Path.Join(thumbFolder,".dthumb"), file.Name),
 				OnDownload = new Command(() =>
 				{
-					Debug.WriteLine("Clicked " + file.FullName);
 					if (file.IsDirectory) EnqueueFolderDownload(file.FullName,"D:\\Downloads");
 					else EnqueueFileDownload(file.FullName, "D:\\Downloads");
 				}),
 				OnClick = new Command(() =>
 				{
-                    Debug.WriteLine("Clicked " + file.FullName + " download");
                     if (file.IsDirectory) UpdateDir(file.FullName);
                     else EnqueueFileDownload(file.FullName, "D:\\Downloads");
                 })
@@ -86,7 +87,6 @@ public partial class MainPage : ContentPage
 			}); ;
 		}
 	}
-
 
     public void CreateTransferButton(TransferInfo transfer)
     {
@@ -114,7 +114,13 @@ public partial class MainPage : ContentPage
             else if (b.Item2 == TransferEventType.Finished)
             {
                 transfers.Remove(transfer);
-            }
+            }else if (b.Item2 == TransferEventType.Error)
+			{
+                transfers.Remove(transfer);
+            }else if (b.Item2 != TransferEventType.CalculatingDistances)
+			{
+				transfer.UpdateProgress();
+			}
 
         };
     }
@@ -123,12 +129,8 @@ public partial class MainPage : ContentPage
         CreateTransferButton(transfer);
 	}
 
-	public void EnqueueFolderDownload(string filePath, string target, bool insideFolder=true)
+	public void EnqueueFolderDownload(string filePath, string target)
 	{
-		if (insideFolder)
-		{
-			target = Path.Join(target,SFTP.RemoteGetFileName(filePath));
-		}
         TransferInfo transfer = sftp.EnqueueFolderDownload(filePath, target);
         CreateTransferButton(transfer);
     }

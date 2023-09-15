@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using WinSCP;
 
 namespace DirectSFTP
 {
@@ -16,7 +15,6 @@ namespace DirectSFTP
     public class TransferInfo : BindableObject
     {
         public TransferType Type { get; set; }
-        public string Mask { get; set; }
         public bool Thumbnails { get; set; } // whether the transfer is supposed to download thumbnails (from .dthumb folder)
         public string TargetPath { get; set; }
         public string SourcePath { get; set; }
@@ -28,12 +26,16 @@ namespace DirectSFTP
         public Command OnDownload { get; set; }
         public bool SingleFile { get; set; }
         public string Title { get; set; }
+        public bool Cancel { get; set; }
+        public double Size { get; set; }
         public TransferInfo(int id)
         {
             Id = id;
             Progress = 0;
             Status = "Queued";
             SingleFile = false;
+            Cancel = false;
+            Size = 0;
         }
 
         public void UpdateProgress()
@@ -41,6 +43,7 @@ namespace DirectSFTP
             OnPropertyChanged(nameof(TransSpeed));
             OnPropertyChanged(nameof(Progress));
             OnPropertyChanged(nameof(Status));
+            OnPropertyChanged(nameof(Size));
         }
        
         
