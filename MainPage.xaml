@@ -78,17 +78,26 @@
                                 Grid.Column="1"
                                 FontAttributes="Bold" />
                             <Label 
-                                Text="{Binding Progress}"
                                 Grid.Column="2"
-                                FontAttributes="Bold" />
+                                FontAttributes="Bold">
+                                <Label.Text>
+                                    <Binding Path="Progress" StringFormat="{}{0:F3} %" />
+                                </Label.Text>
+                            </Label>
                             <Label 
-                                Text="{Binding TransSpeed}"
                                 Grid.Column="3"
-                                FontAttributes="Bold" />
+                                FontAttributes="Bold" >
+                                <Label.Text>
+                                    <Binding Path="TransSpeed" StringFormat="{}{0:F3} MB/s" />
+                                </Label.Text>
+                            </Label>
                             <Label 
-                                Text="{Binding Size}"
                                 Grid.Column="4"
-                                FontAttributes="Bold" />
+                                FontAttributes="Bold">
+                                <Label.Text>
+                                    <Binding Path="Size" StringFormat="{}{0:F3} MB" />
+                                </Label.Text>
+                            </Label>
                             <Button 
                                 Text="Cancel"
                                 Grid.Column="5"

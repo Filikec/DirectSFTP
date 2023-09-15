@@ -28,6 +28,13 @@ public partial class MainPage : ContentPage
 		if (SFTP.IsConnected) Task.Run(() => { UpdateDir(SFTP.CurDir); });
 		else SFTP.Connected += (a, b) => Task.Run(() => { UpdateDir(SFTP.CurDir); });
 
+		SFTP.ThumbnailDownloaded += (a, b) => {
+            for (int i = 0; i <= dirElements.Count; i++)
+            {
+                if (i < dirElements.Count) dirElements[i].UpdatedImg();
+            }
+        };
+
     }
 
 	private void OnParentFolderClick(object sender, EventArgs e)

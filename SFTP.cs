@@ -27,9 +27,8 @@ namespace DirectSFTP
         private static bool working = false;
         public static TransferInfo curTrans { get; private set; } = null;
         public static bool IsConnected { get; private set; } = false;
-        private static bool cancel = false;
         public static string CurDir = "/";
-        public static event EventHandler Connected;
+        public static event EventHandler Connected, ThumbnailDownloaded;
 
         // handlers for different transfers
         public Dictionary<int, EventHandler<Tuple<int,TransferEventType>>> TransferEvents { get; private set; }
@@ -256,12 +255,13 @@ namespace DirectSFTP
                             totalRead += dif;
                             
                             transfer.Status = "Downloading";
-                            transfer.Progress = ((double)totalRead) / totalSize;
+                            transfer.Progress = totalRead * 100.0 / totalSize;
                             transfer.TransSpeed = totalRead / sw.ElapsedMilliseconds / 1000.0;
                             TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Progress));
                         }
                     });
                 }
+                ThumbnailDownloaded?.Invoke(this, EventArgs.Empty);
                 TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Finished));
             }
             catch (Exception ex)
@@ -346,8 +346,8 @@ namespace DirectSFTP
                     else
                     {
                         transfer.Status = "Downloading";
-                        transfer.Progress = bytesRead / totalSize;
-                        transfer.TransSpeed = ((double)bytesRead) / sw.ElapsedMilliseconds / 1000.0;
+                        transfer.Progress = bytesRead * 100.0 / totalSize;
+                        transfer.TransSpeed = ((double)bytesRead)  / sw.ElapsedMilliseconds / 1000.0;
                         TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Progress));
                     }
                 });
