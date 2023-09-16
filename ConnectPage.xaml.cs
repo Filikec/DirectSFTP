@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using Microsoft.Maui.Controls.PlatformConfiguration;
 using Renci.SshNet.Common;
 using Renci.SshNet.Sftp;
 
@@ -10,10 +12,12 @@ public partial class ConnectPage : ContentPage
     private ObservableCollection<DirectoryElementInfo> dirElements = new();
     private ObservableCollection<TransferInfo> transfers = new();
     private SFTP sftp;
+    private SelectedOptions selectedOptions;
 
     public ConnectPage()
     {
         InitializeComponent();
+       
 
         dirView.ItemsSource = dirElements;
         transView.ItemsSource = transfers;
@@ -33,6 +37,7 @@ public partial class ConnectPage : ContentPage
         if (SFTP.IsConnected) Task.Run(() => { UpdateDir(SFTP.CurDir); });
         else SFTP.Connected += (a, b) => Task.Run(() => { UpdateDir(SFTP.CurDir); });
 
+        selectedOptions = new(this);
     }
 
     private void OnParentFolderClick(object sender, EventArgs e)
@@ -59,7 +64,7 @@ public partial class ConnectPage : ContentPage
             return;
         }catch (Exception ex)
         {
-            Debug.WriteLine(ex.ToString());
+            Debug.WriteLine(ex.ToString() + " <<<");
             return;
         }
 
@@ -76,15 +81,9 @@ public partial class ConnectPage : ContentPage
             dirElements.Add(new()
             {
                 FileInfo = file,
-                OnDownload = new Command(() =>
-                {
-                    if (file.IsDirectory) EnqueueFolderDownload(file.FullName, SFTP.GetDownloadFolder());
-                    else EnqueueFileDownload(file.FullName, SFTP.GetDownloadFolder());
-                }),
                 OnClick = new Command(() =>
                 {
                     if (file.IsDirectory) UpdateDir(file.FullName);
-                    else EnqueueFileDownload(file.FullName, SFTP.GetDownloadFolder());
                 })
 
             });
@@ -93,7 +92,6 @@ public partial class ConnectPage : ContentPage
             {
                 DownloadThumbnail(dirElements.Last());
             }
-
             i++;
         }
     }
@@ -106,7 +104,6 @@ public partial class ConnectPage : ContentPage
             {
                 transfers.Remove(transfer);
             }
-
         });
         transfers.Add(transfer);
 
@@ -148,14 +145,6 @@ public partial class ConnectPage : ContentPage
         CreateTransferButton(transfer);
     }
 
-    private void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        foreach (var item in e.CurrentSelection)
-        {
-            Debug.WriteLine(item.ToString());
-        }
-        
-    }
 
     private async void DownloadThumbnail(DirectoryElementInfo file)
     {
@@ -166,13 +155,14 @@ public partial class ConnectPage : ContentPage
 
         string thumbFolder = SFTP.GetThumbnailFolder(SFTP.RemoteGetDirName(file.FileInfo.FullName));
 
-        if (await Task.Run(() => sftp.GetSession().Exists(remotePath))==false){
-            return;
-        }
+        var isFile = await Task.Run(() =>
+        {
+            return sftp.GetSessionList().Exists(remotePath);
+        });
+
+        if (isFile == false) return;
 
         if (!Directory.Exists(thumbFolder)) Directory.CreateDirectory(thumbFolder);
-
-        
 
         var transfer = sftp.EnqueueFileDownload(remotePath, thumbFolder,true);
         sftp.TransferEvents[transfer.Id] += (object a, Tuple<int, TransferEventType> b) =>
@@ -185,4 +175,42 @@ public partial class ConnectPage : ContentPage
             }
         };
     }
+
+    private void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (e.CurrentSelection.Count > 0)
+        {
+            if (selectedOptions.IsShowing == false)
+            {
+                selectedOptions.ShowItems();
+            }
+            SetSelectionOnDownload(e.CurrentSelection);
+            
+        }else if (e.CurrentSelection.Count == 0 && selectedOptions.IsShowing)
+        {
+            selectedOptions.HideItems();
+            var r = e.CurrentSelection;
+        }
+    }
+
+    private void SetSelectionOnDownload(IReadOnlyList<object> items)
+    {
+        selectedOptions.SetOnDownload(new Command(() =>
+        {
+            foreach (DirectoryElementInfo item in items)
+            {
+                if (item.FileInfo.IsDirectory)
+                {
+                    EnqueueFolderDownload(item.FileInfo.FullName, SFTP.GetDownloadFolder());
+                }
+                else
+                {
+                    EnqueueFileDownload(item.FileInfo.FullName, SFTP.GetDownloadFolder());
+                }
+            }
+
+
+        }));
+    }
+
 }

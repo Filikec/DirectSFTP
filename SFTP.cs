@@ -57,6 +57,10 @@ namespace DirectSFTP
         {
             lock (lockObj) { return  session; }
         }
+        public SftpClient GetSessionList()
+        {
+            lock (lockObj) { return sessionList; }
+        }
 
         public bool Connect(string host, int port, string user, string pswd)
         {
@@ -333,7 +337,7 @@ namespace DirectSFTP
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"{ex.Message}");
+                        Debug.WriteLine($"{ex.Message} + <");
                     }
                 }
                 else
@@ -397,6 +401,8 @@ namespace DirectSFTP
                 }
             }
         }
+
+        
         private void CleanupAfterTransfer()
         {
             working = false;

@@ -24,14 +24,19 @@
                         <Button Grid.Column="0"
                                 Text="{Binding FileInfo.Name}"
                                 Command="{Binding OnClick}"
-                                FontAttributes="Bold" 
-                                Style="{StaticResource CustomButtonStyle}"/>
+                                FontAttributes="Bold"
+                                Style="{StaticResource CustomButtonStyle}">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding FileInfo.IsDirectory}" Value="False">
+                                    <Setter Property="BackgroundColor" Value="Transparent"  />
+                                </DataTrigger> 
+                                <DataTrigger TargetType="Button" Binding="{Binding FileInfo.IsDirectory}" Value="False">
+                                    <Setter Property="BorderColor" Value="Transparent" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
                         <Image Grid.Column="1" Source="{Binding ImagePath}" Aspect="Center"/>
-                        <Button Grid.Column="2"
-                                Text="Download"
-                                Command="{Binding OnDownload}"
-                                FontAttributes="Bold" 
-                                Style="{StaticResource CustomButtonStyle}"/>
+                        
                     </Grid>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
