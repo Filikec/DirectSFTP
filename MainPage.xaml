@@ -3,111 +3,20 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="DirectSFTP.MainPage">
 
-    <StackLayout>
-        <Button Text=".." Clicked="OnParentFolderClick"/>
-        <CollectionView x:Name="dirView"
-                        VerticalOptions="StartAndExpand">
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
-                    <Grid Padding="30">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="auto" />
-                        </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Button Grid.Column="0"
-                                Text="{Binding FileInfo.Name}"
-                                Command="{Binding OnClick}"
-                                FontAttributes="Bold" />
-                        <Image Grid.Column="1" Source="{Binding ImagePath}" Aspect="Center"/>
-                        <Button Grid.Column="2"
-                                Text="Download"
-                                Command="{Binding OnDownload}"
-                                FontAttributes="Bold" />
-                    </Grid>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
-        <StackLayout VerticalOptions="StartAndExpand">
-            <Label Text="Transfers"/>
-            <Grid Padding="30">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <Label Grid.Column="0" Text="Source File"/>
-                <Label Grid.Column="1" Text="Status"/>
-                <Label Grid.Column="2" Text="Progress"/>
-                <Label Grid.Column="3" Text="Speed"/>
-                <Label Grid.Column="4" Text="Size"/>
-                <Label Grid.Column="5" Text=""/>
-            </Grid>
-            <CollectionView x:Name="transView"
-                            VerticalOptions="StartAndExpand"
-                            ItemsLayout="VerticalGrid, 1">
-                <CollectionView.ItemTemplate>
-                    <DataTemplate>
-                        <Grid Padding="30">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Label 
-                                Text="{Binding Title}"
-                                Grid.Column="0"
-                                FontAttributes="Bold" />
-                            <Label 
-                                Text="{Binding Status}"
-                                Grid.Column="1"
-                                FontAttributes="Bold" />
-                            <Label 
-                                Grid.Column="2"
-                                FontAttributes="Bold">
-                                <Label.Text>
-                                    <Binding Path="Progress" StringFormat="{}{0:F3} %" />
-                                </Label.Text>
-                            </Label>
-                            <Label 
-                                Grid.Column="3"
-                                FontAttributes="Bold" >
-                                <Label.Text>
-                                    <Binding Path="TransSpeed" StringFormat="{}{0:F3} MB/s" />
-                                </Label.Text>
-                            </Label>
-                            <Label 
-                                Grid.Column="4"
-                                FontAttributes="Bold">
-                                <Label.Text>
-                                    <Binding Path="Size" StringFormat="{}{0:F3} MB" />
-                                </Label.Text>
-                            </Label>
-                            <Button 
-                                Text="Cancel"
-                                Grid.Column="5"
-                                Command="{Binding OnCancel}"
-                                FontAttributes="Bold"/>
-                        </Grid>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-        </StackLayout>
-    </StackLayout>
+    <VerticalStackLayout>
+        <Entry x:Name="host" Placeholder="Host"></Entry>
+        <Entry x:Name="port" Placeholder="Port"></Entry>
+        <Entry x:Name="username" Placeholder="Username"></Entry>
+        <Entry x:Name="password" Placeholder="Password" IsPassword="True"></Entry>
+        <FlexLayout Direction="Row" JustifyContent="SpaceEvenly">
+            <Button x:Name="downloadFolderButton" Text="Choose download location" Clicked="OnChooseDownloadLocation" Style="{StaticResource CustomButtonStyle}"></Button>
+            <Label x:Name="downloadFolderLabel"></Label>
+        </FlexLayout>
+        
+        <FlexLayout Direction="Row" JustifyContent="SpaceEvenly">
+            <Button Text="Connect" Clicked="OnConnect" Style="{StaticResource CustomButtonStyle}"/>
+            <Button Text="Save" Clicked="OnSave" Style="{StaticResource CustomButtonStyle}"/>
+        </FlexLayout>
+    </VerticalStackLayout>
     
 </ContentPage>

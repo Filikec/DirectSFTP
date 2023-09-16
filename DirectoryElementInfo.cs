@@ -5,16 +5,17 @@ namespace DirectSFTP
 {
     public class DirectoryElementInfo : BindableObject
     {
-        private bool imgUpdated = false;
+        public bool ImgUpdated { get; private set; } = false;
+        public bool Updating { get;  set; } = false;
         public SftpFile FileInfo { get; set; }
         public string ImagePath { get; set; }
         public Command OnClick { get; set; }
         public Command OnDownload { get; set; }
         public void UpdatedImg()
         {
-            if (!imgUpdated)
+            if (!ImgUpdated)
             {
-                imgUpdated = true;
+                ImgUpdated = true;
                 OnPropertyChanged(nameof(ImagePath));
             }
         }

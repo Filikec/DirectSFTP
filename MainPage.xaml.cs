@@ -1,145 +1,88 @@
 ﻿using System.Collections;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using CommunityToolkit.Maui.Storage;
 using Renci.SshNet.Sftp;
 
 namespace DirectSFTP;
 
 public partial class MainPage : ContentPage
 {
-	private ObservableCollection<DirectoryElementInfo> dirElements = new();
-    private ObservableCollection<TransferInfo> transfers = new();
-    private SFTP sftp;
 
-	public MainPage()
-	{
-		InitializeComponent();
-		dirView.ItemsSource = dirElements;
-		transView.ItemsSource = transfers;
-		dirView.Scrolled += (a, b) =>
-		{
-			for (int i = b.FirstVisibleItemIndex; i <= b.LastVisibleItemIndex; i++)
-			{
-				if (i < dirElements.Count && i>=0) dirElements[i].UpdatedImg();
-			}
-		};
-		sftp = SFTP.GetInstance();
+    public List<Tuple<string, Entry>> Settings;
+    public MainPage()
+    {
+        InitializeComponent();
 
-		if (SFTP.IsConnected) Task.Run(() => { UpdateDir(SFTP.CurDir); });
-		else SFTP.Connected += (a, b) => Task.Run(() => { UpdateDir(SFTP.CurDir); });
-
-		SFTP.ThumbnailDownloaded += (a, b) => {
-            for (int i = 0; i <= dirElements.Count; i++)
-            {
-                if (i < dirElements.Count) dirElements[i].UpdatedImg();
-            }
+        Settings = new()
+        {
+            new("Host",host),
+            new("Password",password),
+            new("Port",port),
+            new("Username",username)
         };
 
+        foreach (var item in Settings)
+        {
+            var pref = Preferences.Default.Get(item.Item1, "");
+            if (pref != "")
+            {
+                item.Item2.Text = pref;
+            }
+        }
+        downloadFolderLabel.Text = SFTP.GetDownloadFolder();
     }
 
-	private void OnParentFolderClick(object sender, EventArgs e)
-	{
-		string path = SFTP.CurDir;
-
-		if (path == "/") return;
-
-		path = SFTP.RemoteGetDirName(path);
-
-		UpdateDir(path);
-	}
-
-	private async void UpdateDir(string dir)
-	{
-		IEnumerable<SftpFile> files;
-		try
-		{
-            files = await sftp.ListDir(dir);
-        }catch (Exception ex)
-		{
-			Debug.WriteLine(ex.ToString());
-			return;
-		}
-
-
-		SFTP.CurDir = dir;
-        await Dispatcher.DispatchAsync(()=>Title = dir);
-        dirElements.Clear();
-		string thumbFolder = SFTP.GetThumbnailFolder(dir);
-
-		foreach (var file in files)
-		{
-			if (file.Name == ".dthumb")
-			{
-				string tmpFolder = thumbFolder;
-				if (!Directory.Exists(tmpFolder)) Directory.CreateDirectory(tmpFolder);
-				sftp.EnqueueFolderDownload(file.FullName, tmpFolder, true);
-            }
-			if (file.Name.StartsWith('.')) continue;
-
-			dirElements.Add(new()
-			{
-				FileInfo = file,
-				ImagePath = file.IsDirectory ? "" : Path.Join(Path.Join(thumbFolder,".dthumb"), file.Name),
-				OnDownload = new Command(() =>
-				{
-					if (file.IsDirectory) EnqueueFolderDownload(file.FullName,"D:\\Downloads");
-					else EnqueueFileDownload(file.FullName, "D:\\Downloads");
-				}),
-				OnClick = new Command(() =>
-				{
-                    if (file.IsDirectory) UpdateDir(file.FullName);
-                    else EnqueueFileDownload(file.FullName, "D:\\Downloads");
-                })
-
-			}); ;
-		}
-	}
-
-    public void CreateTransferButton(TransferInfo transfer)
+    public async void OnConnect(object sender, EventArgs ars)
     {
-        transfer.OnCancel = new Command(() => {
-            sftp.CancelTransfer(transfer.Id);
-            if (SFTP.curTrans.Id != transfer.Id)
+        var isConnected = await Task.Run(() =>
+        {
+            try
             {
-                transfers.Remove(transfer);
+                bool connected = SFTP.GetInstance().Connect(host.Text, int.Parse(port.Text), username.Text, password.Text);
+                return connected;
+            }catch (Exception)
+            {
+                return false;
             }
+            
+        });
+
+        if (Preferences.Default.Get("DownloadFolder","") == "")
+        {
+            await DisplayAlert("Alert", "You haven't selected a download folder", "OK");
+        }
+        else
+        {
+            Dispatcher.Dispatch(() => Navigation.PushAsync(new ConnectPage()));
+        }
+
+
+    }
+    public void OnSave(object sender, EventArgs ars)
+    {
+
+        foreach (var item in Settings)
+        {
+            Preferences.Default.Set(item.Item1, item.Item2.Text);
+        }
+    }
+    public void OnChooseDownloadLocation(object sender, EventArgs ars)
+    {
+       
+        
+        Task.Run(async () =>
+        {
+            CancellationToken token = new();
+            var res = await FolderPicker.PickAsync(token);
+            if (res.IsSuccessful)
+            {
+                Preferences.Default.Set("DownloadFolder", res.Folder.Path);
+            }
+            Dispatcher.Dispatch(()=> downloadFolderLabel.Text = SFTP.GetDownloadFolder());
 
         });
-        transfers.Add(transfer);
-
-        sftp.TransferEvents[transfer.Id] += (object a, Tuple<int, TransferEventType> b) =>
-        {
-            TransferInfo info = (TransferInfo)a;
-            if (b.Item2 == TransferEventType.Cancelled)
-            {
-                transfers.Remove(transfer);
-            }
-            else if (b.Item2 == TransferEventType.Progress)
-            {
-                transfer.UpdateProgress();
-            }
-            else if (b.Item2 == TransferEventType.Finished)
-            {
-                transfers.Remove(transfer);
-            }else if (b.Item2 == TransferEventType.Error)
-			{
-                transfers.Remove(transfer);
-            }else if (b.Item2 != TransferEventType.CalculatingDistances)
-			{
-				transfer.UpdateProgress();
-			}
-
-        };
-    }
-    public void EnqueueFileDownload(string filePath, string target){
-		TransferInfo transfer = sftp.EnqueueFileDownload(filePath, target);
-        CreateTransferButton(transfer);
-	}
-
-	public void EnqueueFolderDownload(string filePath, string target)
-	{
-        TransferInfo transfer = sftp.EnqueueFolderDownload(filePath, target);
-        CreateTransferButton(transfer);
-    }
+        
+    }   
 }
 

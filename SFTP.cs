@@ -23,7 +23,7 @@ namespace DirectSFTP
         private static readonly object lockObj = new();
         private static SFTP instance;
         private static int Id = 0;
-        private SftpClient session;
+        private SftpClient session, sessionList;
         private static bool working = false;
         public static TransferInfo curTrans { get; private set; } = null;
         public static bool IsConnected { get; private set; } = false;
@@ -38,6 +38,10 @@ namespace DirectSFTP
         private SFTP() {
             TransferEvents = new();
             Transfers = new();
+        }
+        public static string GetDownloadFolder()
+        {
+            return Preferences.Default.Get("DownloadFolder", "");
         }
         public static SFTP GetInstance()
         {
@@ -54,24 +58,30 @@ namespace DirectSFTP
             lock (lockObj) { return  session; }
         }
 
-        public async void Connect(string host, int port, string user, string pswd)
+        public bool Connect(string host, int port, string user, string pswd)
         {
-             await Task.Run( () => {
-                 session = new(host,port,user,pswd);
-                 session.Connect();
-                 Debug.WriteLine("Connected");
-                 IsConnected = true;
-                 Connected?.Invoke(this, EventArgs.Empty); 
-             });
-            
+            session = new(host,port,user,pswd);
+            sessionList = new(host, port, user, pswd);
+            try
+            {
+                session.Connect();
+                sessionList.Connect();
+                IsConnected = true;
+                Connected?.Invoke(this, EventArgs.Empty);
+            }catch(Exception e)
+            {
+                return false;
+            }
+                 
+            return true;
         }
 
         public async Task<IEnumerable<SftpFile>> ListDir(string dir=null)
         {
             dir ??= CurDir;
 
-            var res = await Task.Run(() =>  { return session.ListDirectory(dir); });
-
+            
+            var res = await Task.Run(() =>  { return sessionList.ListDirectory(dir); });
             return res;
         }
 
@@ -92,15 +102,23 @@ namespace DirectSFTP
                    Type = TransferType.Download
             };
 
+            TransferEvents.Add(newTransfer.Id, null);
+
+            if (thumbnails)
+            {
+                Task.Run(()=>DownloadFolder(newTransfer));
+                return null;
+            }
+
             Transfers.Add(newTransfer);
-            TransferEvents.Add(newTransfer.Id,null);
+            
 
             ContinueWork();
 
             return newTransfer;
         }
 
-        public TransferInfo EnqueueFileDownload(string source, string target)
+        public TransferInfo EnqueueFileDownload(string source, string target, bool thumbnail=false)
         {
             if (session == null) throw new Exception("No session");
             Debug.WriteLine("Enquing file download");
@@ -108,15 +126,20 @@ namespace DirectSFTP
             {
                 SourcePath = source,
                 TargetPath = target,
-                Thumbnails = false,
+                Thumbnails = thumbnail,
                 Title = source,
                 SingleFile = true,
                 Type = TransferType.Download
             };
 
-            Transfers.Add(newTransfer);
             TransferEvents.Add(newTransfer.Id, null);
-
+            if (thumbnail)
+            {
+                Task.Run(()=>DownloadFile(newTransfer));
+                return newTransfer;
+            }
+            Transfers.Add(newTransfer);
+      
             ContinueWork();
 
             return newTransfer;
@@ -203,22 +226,23 @@ namespace DirectSFTP
 
         private void DownloadFolder(TransferInfo transfer)
         {
+            Debug.WriteLine("Starting");
 
             string sourceDirName = RemoteGetFileName(transfer.SourcePath);
             int prefixSize = RemoteGetDirName(transfer.SourcePath).Length;
 
             transfer.Status = "Calculating";
             TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.CalculatingDistances));
-
             List<SftpFile> allFiles = new();
 
+            
             Tuple<List<SftpFile>,long> info = null;
             try
             {
                 info = GetFilesRecursive(transfer.SourcePath, allFiles, transfer.Thumbnails);
             }catch (Exception ex)
             {
-                Debug.WriteLine(ex.Message);
+                Debug.WriteLine(ex.Message + "WHat");
                 //TODO HANDLE
                 return;
             }
@@ -264,7 +288,7 @@ namespace DirectSFTP
                 ThumbnailDownloaded?.Invoke(this, EventArgs.Empty);
                 TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Finished));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 if (curTrans.Cancel)
                 {
@@ -329,16 +353,20 @@ namespace DirectSFTP
             if (session.IsConnected == false) throw new Exception("Not connected");
 
             string localFilePath = Path.Join(transfer.TargetPath,RemoteGetFileName(transfer.SourcePath));
+            if (Directory.Exists(transfer.TargetPath) == false) Directory.CreateDirectory(transfer.TargetPath);
 
+            Debug.WriteLine("Downloading " + transfer.SourcePath + " into " + localFilePath);
             try
             {
-                double totalSize = session.GetAttributes(transfer.SourcePath).Size;
-                
+                var sessionUsed = session;
+                if (transfer.Thumbnails) sessionUsed = sessionList;
+
+                double totalSize = sessionUsed.GetAttributes(transfer.SourcePath).Size;
                 transfer.Size = totalSize/1000000.0;
                 using var file = File.Create(localFilePath);
                 Stopwatch sw = Stopwatch.StartNew();
 
-                session.DownloadFile(transfer.SourcePath, file, (bytesRead) => {
+                sessionUsed.DownloadFile(transfer.SourcePath, file, (bytesRead) => {
                     if (transfer.Cancel)
                     {
                         file.Close();
@@ -354,15 +382,16 @@ namespace DirectSFTP
                 sw.Stop();
                 TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Finished));
             }
-            catch (Exception ex)
+            catch (Exception e)
             {
-                if (curTrans.Cancel)
+                if (transfer.Cancel)
                 {
                     Debug.WriteLine("Cancelled");
                     TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Cancelled));
                 }
                 else
                 {
+                    Debug.WriteLine(e.Message);
                     Debug.WriteLine("Error");
                     TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Error));
                 }
