@@ -98,9 +98,10 @@ public partial class ConnectPage : ContentPage
 
     public void CreateTransferButton(TransferInfo transfer)
     {
+        Debug.WriteLine("Creating Transfer button");
         transfer.OnCancel = new Command(() => {
-            sftp.CancelTransfer(transfer.Id);
-            if (SFTP.curTrans.Id != transfer.Id)
+            sftp.CancelTransfer(transfer);
+            if (SFTP.curTrans != null && SFTP.curTrans.Id != transfer.Id)
             {
                 transfers.Remove(transfer);
             }
@@ -112,6 +113,7 @@ public partial class ConnectPage : ContentPage
             TransferInfo info = (TransferInfo)a;
             if (b.Item2 == TransferEventType.Cancelled)
             {
+                Debug.WriteLine("Removing transfer " + "Cancelled");
                 transfers.Remove(transfer);
             }
             else if (b.Item2 == TransferEventType.Progress)
@@ -120,10 +122,12 @@ public partial class ConnectPage : ContentPage
             }
             else if (b.Item2 == TransferEventType.Finished)
             {
+                Debug.WriteLine("Removing transfer " + " Finished");
                 transfers.Remove(transfer);
             }
             else if (b.Item2 == TransferEventType.Error)
             {
+                Debug.WriteLine("Removing transfer " + "Error");
                 transfers.Remove(transfer);
             }
             else if (b.Item2 != TransferEventType.CalculatingDistances)
@@ -164,10 +168,10 @@ public partial class ConnectPage : ContentPage
 
         if (!Directory.Exists(thumbFolder)) Directory.CreateDirectory(thumbFolder);
 
-        var transfer = sftp.EnqueueFileDownload(remotePath, thumbFolder,true);
+        var transfer = sftp.EnqueueFileDownload(remotePath, thumbFolder, true);
         sftp.TransferEvents[transfer.Id] += (object a, Tuple<int, TransferEventType> b) =>
         {
-            TransferInfo info = (TransferInfo)a;
+            TransferInfo info = (TransferInfo) a;
             if (b.Item2 == TransferEventType.Finished)
             {
                 file.ImagePath = Path.Join(thumbFolder, file.FileInfo.Name);
@@ -189,7 +193,6 @@ public partial class ConnectPage : ContentPage
         }else if (e.CurrentSelection.Count == 0 && selectedOptions.IsShowing)
         {
             selectedOptions.HideItems();
-            var r = e.CurrentSelection;
         }
     }
 
@@ -208,8 +211,6 @@ public partial class ConnectPage : ContentPage
                     EnqueueFileDownload(item.FileInfo.FullName, SFTP.GetDownloadFolder());
                 }
             }
-
-
         }));
     }
 

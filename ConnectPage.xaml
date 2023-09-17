@@ -36,7 +36,6 @@
                             </Button.Triggers>
                         </Button>
                         <Image Grid.Column="1" Source="{Binding ImagePath}" Aspect="Center"/>
-                        
                     </Grid>
                 </DataTemplate>
             </CollectionView.ItemTemplate>

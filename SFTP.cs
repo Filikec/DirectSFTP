@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Threading;
+using Microsoft.Maui;
 using Microsoft.Maui.Platform;
 using Renci.SshNet;
 using Renci.SshNet.Sftp;
@@ -23,12 +24,12 @@ namespace DirectSFTP
         private static readonly object lockObj = new();
         private static SFTP instance;
         private static int Id = 0;
-        private SftpClient session, sessionList;
+        private SftpClient session, sessionBackground;
         private static bool working = false;
         public static TransferInfo curTrans { get; private set; } = null;
         public static bool IsConnected { get; private set; } = false;
         public static string CurDir = "/";
-        public static event EventHandler Connected, ThumbnailDownloaded;
+        public static event EventHandler Connected;
 
         // handlers for different transfers
         public Dictionary<int, EventHandler<Tuple<int,TransferEventType>>> TransferEvents { get; private set; }
@@ -59,20 +60,20 @@ namespace DirectSFTP
         }
         public SftpClient GetSessionList()
         {
-            lock (lockObj) { return sessionList; }
+            lock (lockObj) { return sessionBackground; }
         }
 
         public bool Connect(string host, int port, string user, string pswd)
         {
             session = new(host,port,user,pswd);
-            sessionList = new(host, port, user, pswd);
+            sessionBackground = new(host, port, user, pswd);
             try
             {
                 session.Connect();
-                sessionList.Connect();
+                sessionBackground.Connect();
                 IsConnected = true;
                 Connected?.Invoke(this, EventArgs.Empty);
-            }catch(Exception e)
+            }catch(Exception)
             {
                 return false;
             }
@@ -85,12 +86,12 @@ namespace DirectSFTP
             dir ??= CurDir;
 
             
-            var res = await Task.Run(() =>  { return sessionList.ListDirectory(dir); });
+            var res = await Task.Run(() =>  { return sessionBackground.ListDirectory(dir); });
             return res;
         }
 
         // can use the mask to download specific files, leave null to download everything from folder (no hidden folders)
-        public TransferInfo EnqueueFolderDownload(string source, string target, bool thumbnails=false)
+        public TransferInfo EnqueueFolderDownload(string source, string target)
         {
             if (session == null) throw new Exception("No session");
 
@@ -100,22 +101,14 @@ namespace DirectSFTP
             {
                    SourcePath = source,
                    TargetPath = target,
-                   Thumbnails = thumbnails,
+                   Thumbnails = false,
                    Title = source,
                    SingleFile = false,
                    Type = TransferType.Download
             };
 
             TransferEvents.Add(newTransfer.Id, null);
-
-            if (thumbnails)
-            {
-                Task.Run(()=>DownloadFolder(newTransfer));
-                return null;
-            }
-
             Transfers.Add(newTransfer);
-            
 
             ContinueWork();
 
@@ -137,9 +130,14 @@ namespace DirectSFTP
             };
 
             TransferEvents.Add(newTransfer.Id, null);
+
             if (thumbnail)
             {
-                Task.Run(()=>DownloadFile(newTransfer));
+                Task.Run(()=> {
+                    double size = sessionBackground.GetAttributes(source).Size;
+                    DownloadFile(newTransfer,size,source,target);
+                });
+
                 return newTransfer;
             }
             Transfers.Add(newTransfer);
@@ -170,7 +168,10 @@ namespace DirectSFTP
             if (curTransfer.Type == TransferType.Download)
             {
                 if (curTrans.SingleFile) await Task.Run(() => {
-                    DownloadFile(curTrans);
+                    double size = session.GetAttributes(curTrans.SourcePath).Size;
+                    curTrans.Status = "Downloading";
+                    curTrans.Size = size/1000000.0;
+                    DownloadFile(curTrans,size,curTrans.SourcePath,curTrans.TargetPath);
                     CleanupAfterTransfer();
                     ContinueWork();
                 });
@@ -182,18 +183,12 @@ namespace DirectSFTP
             }
         }
 
-        public void CancelTransfer(int id)
+        public void CancelTransfer(TransferInfo transfer)
         {
+            transfer.Cancel = true;
             
-            if (working && curTrans.Id == id)
-            {
-                curTrans.Cancel = true;
-            }
-            else
-            {
-                Transfers.RemoveAll(t => t.Id == id);
-                TransferEvents.Remove(id);
-            }
+            Transfers.RemoveAll(t => t.Id == transfer.Id);
+            if (curTrans != null && curTrans.Id != transfer.Id) TransferEvents.Remove(transfer.Id);
         }
 
         // get the directory name for the server path (.../a/b -> .../a ; .../a/b.ext -> .../a)
@@ -247,65 +242,39 @@ namespace DirectSFTP
             }catch (Exception ex)
             {
                 Debug.WriteLine(ex.Message + "WHat");
+                TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Error));
                 //TODO HANDLE
                 return;
             }
 
 
             Stopwatch sw = Stopwatch.StartNew();
-            long totalSize = info.Item2;
-            long totalRead = 0;
+            double totalSize = info.Item2;
+            double totalRead = 0;
             transfer.Size = totalSize/1000000.0;
 
+            transfer.Status = "Downloading";
             try
             {
-                foreach (SftpFile file in info.Item1)
+                foreach (var file in allFiles)
                 {
-                    long prevRead = 0;
-                    string suffix = RemoteGetDirName(file.FullName[(prefixSize+1)..]);
-                    string curDir = Path.Join(transfer.TargetPath, suffix);
-                    string localFilePath = Path.Join(curDir, file.Name);
                     
-                    if (Directory.Exists(curDir)==false)  Directory.CreateDirectory(curDir);
+                    string suffix = RemoteGetDirName(file.FullName[(prefixSize + 1)..]);
+                    string targetDir = Path.Join(transfer.TargetPath, suffix);
 
-                    using var localFile = File.Create(localFilePath);
+                    DownloadFile(transfer, totalSize, file.FullName, targetDir, totalRead, false);
 
-                    session.DownloadFile(file.FullName, localFile, (bytesRead) => {
-
-                        if (transfer.Cancel)
-                        {
-                            localFile.Close();
-                        }
-                        else
-                        {
-                            long dif = (long)bytesRead - prevRead;
-                            prevRead = (long)bytesRead;
-                            totalRead += dif;
-                            
-                            transfer.Status = "Downloading";
-                            transfer.Progress = totalRead * 100.0 / totalSize;
-                            transfer.TransSpeed = totalRead / sw.ElapsedMilliseconds / 1000.0;
-                            TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Progress));
-                        }
-                    });
+                    totalRead += file.Length;
+                    if (transfer.Cancel) { break; }
                 }
-                ThumbnailDownloaded?.Invoke(this, EventArgs.Empty);
                 TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Finished));
             }
-            catch (Exception)
+            catch(Exception e)
             {
-                if (curTrans.Cancel)
-                {
-                    Debug.WriteLine("Cancelled");
-                    TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Cancelled));
-                }
-                else
-                {
-                    Debug.WriteLine("Error");
-                    TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Error));
-                }
+                Debug.WriteLine(e);
+                TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Error));
             }
-            sw.Stop();
+            
         }
 
         // gets all files in folder and subfolders (disregards hidden folders) and their total size
@@ -351,40 +320,41 @@ namespace DirectSFTP
 
         }
 
-        private void DownloadFile(TransferInfo transfer)
+        private void DownloadFile(TransferInfo transfer, double totalSize, string fileRemotePath, string folderTargetPath, double totalRead = 0, bool signalDone=true)
         {
-
             if (session.IsConnected == false) throw new Exception("Not connected");
 
-            string localFilePath = Path.Join(transfer.TargetPath,RemoteGetFileName(transfer.SourcePath));
-            if (Directory.Exists(transfer.TargetPath) == false) Directory.CreateDirectory(transfer.TargetPath);
+            string localFilePath = Path.Join(folderTargetPath, RemoteGetFileName(fileRemotePath));
+            if (Directory.Exists(folderTargetPath) == false) Directory.CreateDirectory(folderTargetPath);
 
-            Debug.WriteLine("Downloading " + transfer.SourcePath + " into " + localFilePath);
+            Debug.WriteLine("Downloading " + fileRemotePath + " into " + localFilePath);
             try
             {
                 var sessionUsed = session;
-                if (transfer.Thumbnails) sessionUsed = sessionList;
+                if (transfer.Thumbnails) sessionUsed = sessionBackground;
 
-                double totalSize = sessionUsed.GetAttributes(transfer.SourcePath).Size;
-                transfer.Size = totalSize/1000000.0;
                 using var file = File.Create(localFilePath);
                 Stopwatch sw = Stopwatch.StartNew();
+                double prevRead = 0;
 
-                sessionUsed.DownloadFile(transfer.SourcePath, file, (bytesRead) => {
+                sessionUsed.DownloadFile(fileRemotePath, file, (bytesRead) => {
                     if (transfer.Cancel)
                     {
                         file.Close();
                     }
                     else
                     {
-                        transfer.Status = "Downloading";
-                        transfer.Progress = bytesRead * 100.0 / totalSize;
+                        double dif = bytesRead - prevRead;
+                        prevRead = bytesRead;
+                        totalRead += dif;
+
+                        transfer.Progress = totalRead * 100.0 / totalSize;
                         transfer.TransSpeed = ((double)bytesRead)  / sw.ElapsedMilliseconds / 1000.0;
                         TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Progress));
                     }
                 });
                 sw.Stop();
-                TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Finished));
+                if (signalDone) TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Finished));
             }
             catch (Exception e)
             {
@@ -392,14 +362,18 @@ namespace DirectSFTP
                 {
                     Debug.WriteLine("Cancelled");
                     TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Cancelled));
+                    File.Delete(localFilePath);
                 }
                 else
                 {
                     Debug.WriteLine(e.Message);
                     Debug.WriteLine("Error");
-                    TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Error));
+                    if (signalDone) TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Error));
+                    File.Delete(localFilePath);
+                    throw new Exception("Error occured");
                 }
             }
+            CleanupAfterTransfer();
         }
 
         
