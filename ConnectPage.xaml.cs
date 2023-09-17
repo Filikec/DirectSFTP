@@ -1,9 +1,10 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using Microsoft.Maui.Controls.PlatformConfiguration;
 using Renci.SshNet.Common;
 using Renci.SshNet.Sftp;
+
+using SharpHook;
 
 namespace DirectSFTP;
 
@@ -13,11 +14,16 @@ public partial class ConnectPage : ContentPage
     private ObservableCollection<TransferInfo> transfers = new();
     private SFTP sftp;
     private SelectedOptions selectedOptions;
+    private Stack<string> prevPaths;
 
     public ConnectPage()
     {
         InitializeComponent();
-       
+
+        prevPaths = new();
+
+        // adds special hooks for input for windows
+        AddHooks();
 
         dirView.ItemsSource = dirElements;
         transView.ItemsSource = transfers;
@@ -32,19 +38,25 @@ public partial class ConnectPage : ContentPage
                 }
             }
         };
+
         sftp = SFTP.GetInstance();
 
         if (SFTP.IsConnected) Task.Run(() => { UpdateDir(SFTP.CurDir); });
         else SFTP.Connected += (a, b) => Task.Run(() => { UpdateDir(SFTP.CurDir); });
 
         selectedOptions = new(this);
+
     }
+
+
 
     private void OnParentFolderClick(object sender, EventArgs e)
     {
         string path = SFTP.CurDir;
-
+        
         if (path == "/") return;
+
+        prevPaths.Push(path);
 
         path = SFTP.RemoteGetDirName(path);
 
@@ -83,7 +95,10 @@ public partial class ConnectPage : ContentPage
                 FileInfo = file,
                 OnClick = new Command(() =>
                 {
-                    if (file.IsDirectory) UpdateDir(file.FullName);
+                    if (file.IsDirectory){
+                        prevPaths.Clear();
+                        UpdateDir(file.FullName);
+                    }
                 })
 
             });
@@ -189,7 +204,9 @@ public partial class ConnectPage : ContentPage
                 selectedOptions.ShowItems();
             }
             SetSelectionOnDownload(e.CurrentSelection);
-            
+            SetSelectionOnDelete(e.CurrentSelection);
+            selectedOptions.SetOnClear(new Command(dirView.SelectedItems.Clear));
+
         }else if (e.CurrentSelection.Count == 0 && selectedOptions.IsShowing)
         {
             selectedOptions.HideItems();
@@ -212,6 +229,51 @@ public partial class ConnectPage : ContentPage
                 }
             }
         }));
+    }
+
+    private void SetSelectionOnDelete(IReadOnlyList<object> items)
+    {
+        selectedOptions.SetOnDelete(new Command(() =>
+        {
+            Task.Run(() =>
+            {
+                foreach (DirectoryElementInfo item in items)
+                {
+                    try
+                    {
+                        if (item.FileInfo.IsDirectory) sftp.DeleteDirectory(item.FileInfo.FullName);
+                        else sftp.DeleteFile(item.FileInfo.FullName);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.ToString() + "Whattt");
+                    }
+                }
+                UpdateDir(SFTP.CurDir);
+            });
+        }));
+    }
+
+    private void AddHooks()
+    {
+        var hook = new TaskPoolGlobalHook();
+        hook.KeyPressed += (a, b) =>
+        {
+            if (b.Data.KeyCode == SharpHook.Native.KeyCode.VcEscape && dirView.SelectedItems.Count > 0) dirView.SelectedItems.Clear();
+        };
+        hook.MousePressed += (a, b) =>
+        {
+            if (b.Data.Button == SharpHook.Native.MouseButton.Button4) OnParentFolderClick(null, null);
+            else if (b.Data.Button == SharpHook.Native.MouseButton.Button5 && prevPaths.Count > 0)
+            {
+                UpdateDir(prevPaths.First());
+                prevPaths.Pop();
+            }
+
+
+        };
+
+        hook.RunAsync();
     }
 
 }

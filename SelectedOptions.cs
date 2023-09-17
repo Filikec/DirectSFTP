@@ -1,19 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static System.Net.Mime.MediaTypeNames;
+﻿
 
 // Intended to be potentially platform dependent (toolbaritem on Android, menuitem on Windows)
+using System.Diagnostics;
+
 namespace DirectSFTP
 {
     internal class SelectedOptions
     {
         private ContentPage page;
-        public MenuBarItem barItem;
-        public MenuFlyoutItem download,rename,delete;
+        public Button download,delete,clear;
         public bool IsShowing { get; private set; }
+        private View oldShellTitle;
+        public View NewTitleView { get; private set; }
 
         public SelectedOptions(ContentPage page)
         {
@@ -21,34 +19,40 @@ namespace DirectSFTP
             delete = new()
             {
                 Text = "Delete",
+                Style = page.Resources["buttonSelectionStyle"] as Style
             };
             download = new()
             {
                 Text = "Download",
+                Style = page.Resources["buttonSelectionStyle"] as Style
             };
-            rename = new()
+
+            clear = new()
             {
-                Text = "Rename",
+                Text = "Clear Selection",
+                Style = page.Resources["buttonSelectionStyle"] as Style
             };
 
             IsShowing = false;
-            barItem = new()
-            {
-                download,
-            };
-            barItem.Text = "Action";
 
+            NewTitleView = new HorizontalStackLayout()
+            {
+                delete,
+                download,
+                clear,
+            };
         }
 
         public void ShowItems()
         {
-            page.MenuBarItems.Add(barItem);
+            oldShellTitle = Shell.GetTitleView(page);
+            Shell.SetTitleView(page, NewTitleView);
             IsShowing = true;
         }
 
         public void HideItems()
         {
-            page.MenuBarItems.Clear();
+            Shell.SetTitleView(page,oldShellTitle);
             IsShowing = false;
         }
 
@@ -56,13 +60,14 @@ namespace DirectSFTP
         {
             download.Command = cmd;
         }
-        public void SetOnRename(Command cmd)
-        {
-            rename.Command = cmd;
-        }
+
         public void SetOnDelete(Command cmd)
         {
             delete.Command = cmd;
+        }
+        public void SetOnClear(Command cmd)
+        {
+            clear.Released += (a,b) => cmd.Execute(null);
         }
     }
 }

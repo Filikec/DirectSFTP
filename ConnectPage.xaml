@@ -3,8 +3,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="DirectSFTP.ConnectPage"
              Title="ConnectPage">
-
+    <ContentPage.Resources>
+        <Style x:Key="buttonSelectionStyle" TargetType="Button" BasedOn="{x:StaticResource CustomButtonStyle}"/>
+    </ContentPage.Resources>
     <StackLayout>
+        
+        
         <Button Text=".." Clicked="OnParentFolderClick" Style="{StaticResource CustomButtonStyle}"/>
         <CollectionView x:Name="dirView"
                         VerticalOptions="StartAndExpand"

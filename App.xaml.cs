@@ -1,4 +1,5 @@
-﻿namespace DirectSFTP;
+﻿
+namespace DirectSFTP;
 
 public partial class App : Application
 {

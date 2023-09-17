@@ -223,6 +223,58 @@ namespace DirectSFTP
             return path+ "/" + name;
         }
 
+        public void DeleteFile(string path)
+        {
+            sessionBackground.Delete(path);
+        }
+
+        public void DeleteDirectory(string dir)
+        {
+            Tuple<List<SftpFile>, long> info = null;
+            List<SftpFile> allFiles = new();
+
+            try
+            {
+                info = GetFilesRecursive(dir, allFiles);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex.Message + "No Permissions to delete dir");
+                return;
+            }
+
+            foreach(SftpFile file in allFiles)
+            {
+                if (file.IsDirectory == false)
+                {
+                    try
+                    {
+                        session.Delete(file.FullName);
+                    }catch(Exception)
+                    {
+                        Debug.WriteLine("Can't delete " + file.FullName);
+                    }
+                }
+            }
+
+            foreach (SftpFile file in allFiles)
+            {
+                if (file.IsDirectory == false)
+                {
+                    try
+                    {
+                        session.Delete(file.FullName);
+                    }
+                    catch (Exception)
+                    {
+                        Debug.WriteLine("Can't delete " + file.FullName);
+                    }
+                }
+            }
+
+
+        }
+        
         private void DownloadFolder(TransferInfo transfer)
         {
             Debug.WriteLine("Starting");
