@@ -216,6 +216,17 @@ public partial class ConnectPage : ContentPage
 
     private void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        
+        foreach (DirectoryElementInfo item in e.PreviousSelection)
+        {
+            item.Selected = false;
+        }
+
+        foreach (DirectoryElementInfo item in e.CurrentSelection)
+        {
+            item.Selected = true;
+        }
+
         if (e.CurrentSelection.Count > 0)
         {
             if (selectedOptions.IsShowing == false)

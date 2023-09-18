@@ -29,21 +29,24 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
+
+                        <Label Grid.Column="0"
+                               Text="{Binding FileInfo.Name}"
+                               IsVisible="{Binding IsFile}"/>
+
+
                         <Button Grid.Column="0"
                                 Text="{Binding FileInfo.Name}"
                                 Command="{Binding OnClick}"
                                 FontAttributes="Bold"
-                                Style="{StaticResource CustomButtonStyle}">
-                            <Button.Triggers>
-                                <DataTrigger TargetType="Button" Binding="{Binding FileInfo.IsDirectory}" Value="False">
-                                    <Setter Property="BackgroundColor" Value="Transparent"  />
-                                </DataTrigger> 
-                                <DataTrigger TargetType="Button" Binding="{Binding FileInfo.IsDirectory}" Value="False">
-                                    <Setter Property="BorderColor" Value="Transparent" />
-                                </DataTrigger>
-                            </Button.Triggers>
-                        </Button>
+                                Style="{StaticResource CustomButtonStyle}"
+                                IsVisible="{Binding FileInfo.IsDirectory}"/>
+
+
                         <Image Grid.Column="1" Source="{Binding ImagePath}" Aspect="Center"/>
+
+                        <CheckBox Grid.Column="2" IsChecked="{Binding Selected}"/>
+
                     </Grid>
                 </DataTemplate>
             </CollectionView.ItemTemplate>

@@ -10,6 +10,12 @@ namespace DirectSFTP
         public SftpFile FileInfo { get; set; }
         public string ImagePath { get; set; }
         public Command OnClick { get; set; }
+
+        public bool IsFile { get { return !FileInfo.IsDirectory; } }
+
+        private bool selected = false;
+
+        public bool Selected { get { return selected; } set { selected = value; OnPropertyChanged(nameof(Selected)); } }
         public void UpdatedImg()
         {
             if (!ImgUpdated)

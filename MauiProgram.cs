@@ -23,9 +23,11 @@ public static class MauiProgram
 #if ANDROID
 				e.AddAndroid(android => android.OnActivityResult((act, req, res, intent) =>
                 {   
+                    if (req == 70){
 						var folderPath = ToPhysicalPath(intent.Data);
                         Preferences.Default.Set("DownloadFolder",folderPath);
                         Debug.WriteLine(SFTP.GetDownloadFolder());
+                    }
                 }));
 #endif
             });
