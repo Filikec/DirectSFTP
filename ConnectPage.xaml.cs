@@ -44,8 +44,9 @@ public partial class ConnectPage : ContentPage
         if (SFTP.IsConnected) Task.Run(() => { UpdateDir(SFTP.CurDir); });
         else SFTP.Connected += (a, b) => Task.Run(() => { UpdateDir(SFTP.CurDir); });
 
-        selectedOptions = new(this,selectionStack);
+        Command onClear = new Command(() => Dispatcher.Dispatch(()=>dirView.SelectedItems.Clear()));
 
+        selectedOptions = new(this,selectionStack,onClear);
     }
 
 
@@ -226,16 +227,17 @@ public partial class ConnectPage : ContentPage
         {
             item.Selected = true;
         }
+        
 
         if (e.CurrentSelection.Count > 0)
         {
+
             if (selectedOptions.IsShowing == false)
             {
                 selectedOptions.ShowItems();
             }
             SetSelectionOnDownload(e.CurrentSelection);
             SetSelectionOnDelete(e.CurrentSelection);
-            selectedOptions.SetOnClear(new Command(dirView.SelectedItems.Clear));
 
         }else if (e.CurrentSelection.Count == 0 && selectedOptions.IsShowing)
         {

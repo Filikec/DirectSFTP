@@ -42,10 +42,9 @@
                                 Style="{StaticResource CustomButtonStyle}"
                                 IsVisible="{Binding FileInfo.IsDirectory}"/>
 
-
                         <Image Grid.Column="1" Source="{Binding ImagePath}" Aspect="Center"/>
 
-                        <CheckBox Grid.Column="2" IsChecked="{Binding Selected}"/>
+                        <CheckBox Grid.Column="2" IsChecked="{Binding Selected}" IsEnabled="False" IsVisible="{Binding Selected}"/>
 
                     </Grid>
                 </DataTemplate>

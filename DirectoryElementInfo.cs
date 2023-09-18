@@ -15,6 +15,8 @@ namespace DirectSFTP
 
         private bool selected = false;
 
+
+
         public bool Selected { get { return selected; } set { selected = value; OnPropertyChanged(nameof(Selected)); } }
         public void UpdatedImg()
         {
