@@ -10,10 +10,10 @@ namespace DirectSFTP
         private ContentPage page;
         public Button download,delete,clear;
         public bool IsShowing { get; private set; }
-        private View oldShellTitle;
-        public View NewTitleView { get; private set; }
+        private HorizontalStackLayout stack;
+        private List<View> oldViews;
 
-        public SelectedOptions(ContentPage page)
+        public SelectedOptions(ContentPage page, HorizontalStackLayout stack)
         {
             this.page = page;
             delete = new()
@@ -35,24 +35,31 @@ namespace DirectSFTP
 
             IsShowing = false;
 
-            NewTitleView = new HorizontalStackLayout()
+            this.stack = stack;
+            oldViews = new();
+
+            foreach (View oldView in stack.Children)
             {
-                delete,
-                download,
-                clear,
-            };
+                oldViews.Add(oldView);
+            }
         }
 
         public void ShowItems()
         {
-            oldShellTitle = Shell.GetTitleView(page);
-            Shell.SetTitleView(page, NewTitleView);
+            stack.Clear();
+            stack.Add(download);
+            stack.Add(clear);
+            stack.Add(delete);
             IsShowing = true;
         }
 
         public void HideItems()
         {
-            Shell.SetTitleView(page,oldShellTitle);
+            stack.Clear();
+            foreach (View oldView in oldViews)
+            {
+                stack.Add(oldView);
+            }
             IsShowing = false;
         }
 

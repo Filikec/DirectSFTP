@@ -7,9 +7,13 @@
         <Style x:Key="buttonSelectionStyle" TargetType="Button" BasedOn="{x:StaticResource CustomButtonStyle}"/>
     </ContentPage.Resources>
     <StackLayout>
+
+        <HorizontalStackLayout x:Name="selectionStack">
+            <Button Text=".." Clicked="OnParentFolderClick" Style="{StaticResource CustomButtonStyle}"/>
+            <Button Text="Reload Folder" Clicked="OnReload" Style="{StaticResource CustomButtonStyle}"/>
+            <Button Text="Upload Files" Clicked="OnUpload" Style="{StaticResource CustomButtonStyle}"/>
+        </HorizontalStackLayout>
         
-        
-        <Button Text=".." Clicked="OnParentFolderClick" Style="{StaticResource CustomButtonStyle}"/>
         <CollectionView x:Name="dirView"
                         VerticalOptions="StartAndExpand"
                         SelectionMode="Multiple"

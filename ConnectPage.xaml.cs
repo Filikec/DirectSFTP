@@ -44,7 +44,7 @@ public partial class ConnectPage : ContentPage
         if (SFTP.IsConnected) Task.Run(() => { UpdateDir(SFTP.CurDir); });
         else SFTP.Connected += (a, b) => Task.Run(() => { UpdateDir(SFTP.CurDir); });
 
-        selectedOptions = new(this);
+        selectedOptions = new(this,selectionStack);
 
     }
 
@@ -63,6 +63,19 @@ public partial class ConnectPage : ContentPage
         UpdateDir(path);
     }
 
+    private async void OnUpload(object sender, EventArgs e)
+    {
+        var result = await FilePicker.Default.PickMultipleAsync();
+        foreach( var file in result)
+        {
+            EnqueueFileUpload(file.FullPath, SFTP.CurDir);
+        }
+        Debug.WriteLine(e.ToString());
+    }
+    private void OnReload(object sender, EventArgs e)
+    {
+        UpdateDir(SFTP.CurDir);
+    }
     private async void UpdateDir(string dir)
     {
         IEnumerable<SftpFile> files;
@@ -155,6 +168,12 @@ public partial class ConnectPage : ContentPage
     public void EnqueueFileDownload(string filePath, string target, bool thumbnail=false)
     {
         TransferInfo transfer = sftp.EnqueueFileDownload(filePath, target, thumbnail);
+        CreateTransferButton(transfer);
+    }
+
+    public void EnqueueFileUpload(string filePath, string target)
+    {
+        TransferInfo transfer = sftp.EnqueueFileUpload(filePath, target);
         CreateTransferButton(transfer);
     }
 
@@ -259,7 +278,10 @@ public partial class ConnectPage : ContentPage
         var hook = new TaskPoolGlobalHook();
         hook.KeyPressed += (a, b) =>
         {
-            if (b.Data.KeyCode == SharpHook.Native.KeyCode.VcEscape && dirView.SelectedItems.Count > 0) dirView.SelectedItems.Clear();
+            if (b.Data.KeyCode == SharpHook.Native.KeyCode.VcEscape && dirView.SelectedItems.Count > 0)
+            {
+                Dispatcher.Dispatch(()=> dirView.SelectedItems.Clear());
+            }
         };
         hook.MousePressed += (a, b) =>
         {

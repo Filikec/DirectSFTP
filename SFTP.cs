@@ -115,6 +115,30 @@ namespace DirectSFTP
             return newTransfer;
         }
 
+        public TransferInfo EnqueueFileUpload(string source, string target)
+        {
+            if (session == null) throw new Exception("No session");
+
+            Debug.WriteLine("Enquing file upload");
+
+            TransferInfo newTransfer = new(Id++)
+            {
+                SourcePath = source,
+                TargetPath = target,
+                Thumbnails = false,
+                Title = source,
+                SingleFile = true,
+                Type = TransferType.Upload
+            };
+
+            TransferEvents.Add(newTransfer.Id, null);
+            Transfers.Add(newTransfer);
+
+            ContinueWork();
+
+            return newTransfer;
+        }
+
         public TransferInfo EnqueueFileDownload(string source, string target, bool thumbnail=false)
         {
             if (session == null) throw new Exception("No session");
@@ -177,6 +201,17 @@ namespace DirectSFTP
                 });
                 else await Task.Run(() => {
                     DownloadFolder(curTrans);
+                    CleanupAfterTransfer();
+                    ContinueWork();
+                });
+            }
+            else
+            {
+                await Task.Run(() => {
+                    var size = new FileInfo(curTrans.SourcePath).Length;
+                    curTrans.Status = "Uploading";
+                    curTrans.Size = size / 1000000.0;
+                    UploadFile(curTrans, size);
                     CleanupAfterTransfer();
                     ContinueWork();
                 });
@@ -275,6 +310,7 @@ namespace DirectSFTP
 
         }
         
+
         private void DownloadFolder(TransferInfo transfer)
         {
             Debug.WriteLine("Starting");
@@ -374,7 +410,6 @@ namespace DirectSFTP
 
         private void DownloadFile(TransferInfo transfer, double totalSize, string fileRemotePath, string folderTargetPath, double totalRead = 0, bool signalDone=true)
         {
-            if (session.IsConnected == false) throw new Exception("Not connected");
 
             string localFilePath = Path.Join(folderTargetPath, RemoteGetFileName(fileRemotePath));
             if (Directory.Exists(folderTargetPath) == false) Directory.CreateDirectory(folderTargetPath);
@@ -428,6 +463,55 @@ namespace DirectSFTP
             CleanupAfterTransfer();
         }
 
+        private void UploadFile(TransferInfo transfer, double totalSize)
+        {
+            string sourcePath = transfer.SourcePath;
+            string targetPath = RemoteJoinPath(transfer.TargetPath, Path.GetFileName(sourcePath));
+
+            if (File.Exists(sourcePath) == false) throw new Exception("File Not present");
+
+            Debug.WriteLine("Uploading " + sourcePath + "into " + targetPath);
+
+            using var sourceFile = File.OpenRead(sourcePath);
+            var sw = Stopwatch.StartNew();
+
+            try
+            {
+                session.UploadFile(sourceFile, targetPath, (bytesWrote) =>
+                {
+                    if (transfer.Cancel)
+                    {
+                        sourceFile.Close();
+                    }
+                    else
+                    {
+                        
+                        transfer.Progress = bytesWrote * 100.0 / totalSize;
+                        transfer.TransSpeed = ((double)bytesWrote) / sw.ElapsedMilliseconds / 1000.0;
+                        TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Progress));
+                    }
+                });
+                TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Finished));
+            }
+            catch(Exception e)
+            {
+                if (transfer.Cancel)
+                {
+                    Debug.WriteLine("Cancelled");
+                    TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Cancelled));
+                    DeleteFile(targetPath);
+                }
+                else
+                {
+                    Debug.WriteLine(e.Message);
+                    Debug.WriteLine("Error");
+                    TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Error));
+                    File.Delete(targetPath);
+                    throw new Exception("Error occured");
+                }
+            }
+            sw.Stop();
+        }
         
         private void CleanupAfterTransfer()
         {

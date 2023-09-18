@@ -1,8 +1,10 @@
 ﻿using System.Collections;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Threading;
 using CommunityToolkit.Maui.Storage;
-using Renci.SshNet.Sftp;
+using Microsoft.Maui;
+using Microsoft.Maui.Controls.PlatformConfiguration;
 
 namespace DirectSFTP;
 
@@ -66,10 +68,14 @@ public partial class MainPage : ContentPage
             Preferences.Default.Set(item.Item1, item.Item2.Text);
         }
     }
-    public void OnChooseDownloadLocation(object sender, EventArgs ars)
+    public  void OnChooseDownloadLocation(object sender, EventArgs ars)
     {
-       
+
+#if ANDROID
         
+        var intent = new Android.Content.Intent(Android.Content.Intent.ActionOpenDocumentTree);
+        Microsoft.Maui.ApplicationModel.Platform.CurrentActivity.StartActivityForResult(intent,70);
+#else
         Task.Run(async () =>
         {
             CancellationToken token = new();
@@ -81,7 +87,8 @@ public partial class MainPage : ContentPage
             Dispatcher.Dispatch(()=> downloadFolderLabel.Text = SFTP.GetDownloadFolder());
 
         });
-        
-    }   
+#endif
+    }
+
 }
 

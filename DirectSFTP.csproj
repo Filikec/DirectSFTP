@@ -71,6 +71,7 @@
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="7.0.0" />
 		<PackageReference Include="SSH.NET" Version="2020.0.2" />
 		<PackageReference Include="SharpHook" Version="5.0.0" />
+		<PackageReference Include="Xamarin.Essentials" Version="1.8.0" />
 	</ItemGroup>
 
 
