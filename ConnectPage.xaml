@@ -7,15 +7,23 @@
         <Style x:Key="buttonSelectionStyle" TargetType="Button" BasedOn="{x:StaticResource CustomButtonStyle}"/>
     </ContentPage.Resources>
     <StackLayout>
-
-        <HorizontalStackLayout x:Name="selectionStack">
-            <Button Text=".." Clicked="OnParentFolderClick" Style="{StaticResource CustomButtonStyle}"/>
+        <StackLayout.GestureRecognizers>
+            <PointerGestureRecognizer PointerEntered="OnPointerEntered"
+                                      PointerExited="OnPointerExited"/>
+        </StackLayout.GestureRecognizers>
+        
+        <FlexLayout Direction="Row" JustifyContent="SpaceEvenly">
+            <Label x:Name="updateLabel"  Text="View's not up-to-date"/>
+        </FlexLayout>
+        
+        <FlexLayout Direction="Row" JustifyContent="SpaceEvenly" x:Name="selectionStack">
+            <Button x:Name="ButtonTryal" Text="Parent Folder" Clicked="OnParentFolderClick" Style="{StaticResource CustomButtonStyle}"/>
             <Button Text="Reload Folder" Clicked="OnReload" Style="{StaticResource CustomButtonStyle}"/>
             <Button Text="Upload Files" Clicked="OnUpload" Style="{StaticResource CustomButtonStyle}"/>
-        </HorizontalStackLayout>
-        
+        </FlexLayout>
+
         <CollectionView x:Name="dirView"
-                        VerticalOptions="StartAndExpand"
+                        VerticalOptions="FillAndExpand"
                         SelectionMode="Multiple"
                         SelectionChanged="OnSelectionChanged">
             <CollectionView.ItemTemplate>
@@ -34,7 +42,6 @@
                                Text="{Binding FileInfo.Name}"
                                IsVisible="{Binding IsFile}"/>
 
-
                         <Button Grid.Column="0"
                                 Text="{Binding FileInfo.Name}"
                                 Command="{Binding OnClick}"
@@ -44,12 +51,13 @@
 
                         <Image Grid.Column="1" Source="{Binding ImagePath}" Aspect="Center"/>
 
-                        <CheckBox Grid.Column="2" IsChecked="{Binding Selected}" IsEnabled="False" IsVisible="{Binding Selected}"/>
+                        <CheckBox Grid.Column="2" IsChecked="{Binding Selected}" IsEnabled="False"/>
 
                     </Grid>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
         </CollectionView>
+        
         <StackLayout VerticalOptions="StartAndExpand">
             <Label Text="Transfers"/>
             <Grid Padding="30">

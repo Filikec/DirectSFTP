@@ -10,7 +10,8 @@ namespace DirectSFTP
     public enum TransferType
     {
         Download,
-        Upload
+        Upload,
+        Delete
     }
     public class TransferInfo : BindableObject
     {
@@ -37,6 +38,7 @@ namespace DirectSFTP
             Cancel = false;
             Size = 0;
         }
+        public IReadOnlyList<DirectoryElementInfo> FilesToDelete { get; set; }
 
         public void UpdateProgress()
         {

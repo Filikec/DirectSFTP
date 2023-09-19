@@ -9,10 +9,10 @@ namespace DirectSFTP
     {
         public Button download,delete,clear;
         public bool IsShowing { get; private set; }
-        private HorizontalStackLayout stack;
+        private FlexLayout layout;
         private List<View> oldViews;
 
-        public SelectedOptions(ContentPage page, HorizontalStackLayout stack, Command onClear)
+        public SelectedOptions(ContentPage page, FlexLayout layout, Command onClear)
         {
             delete = new()
             {
@@ -34,10 +34,10 @@ namespace DirectSFTP
 
             IsShowing = false;
 
-            this.stack = stack;
+            this.layout = layout;
             oldViews = new();
 
-            foreach (View oldView in stack.Children)
+            foreach (View oldView in layout.Children)
             {
                 oldViews.Add(oldView);
             }
@@ -47,19 +47,19 @@ namespace DirectSFTP
 
         public void ShowItems()
         {
-            stack.Clear();
-            stack.Add(download);
-            stack.Add(clear);
-            stack.Add(delete);
+            layout.Clear();
+            layout.Add(download);
+            layout.Add(clear);
+            layout.Add(delete);
             IsShowing = true;
         }
 
         public void HideItems()
         {
-            stack.Clear();
+            layout.Clear();
             foreach (View oldView in oldViews)
             {
-                stack.Add(oldView);
+                layout.Add(oldView);
             }
             IsShowing = false;
         }

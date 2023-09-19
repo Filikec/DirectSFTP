@@ -93,8 +93,6 @@ namespace DirectSFTP
         // can use the mask to download specific files, leave null to download everything from folder (no hidden folders)
         public TransferInfo EnqueueFolderDownload(string source, string target)
         {
-            if (session == null) throw new Exception("No session");
-
             Debug.WriteLine("Enquing dir download");
 
             TransferInfo newTransfer = new(Id++)
@@ -105,6 +103,28 @@ namespace DirectSFTP
                    Title = source,
                    SingleFile = false,
                    Type = TransferType.Download
+            };
+
+            TransferEvents.Add(newTransfer.Id, null);
+            Transfers.Add(newTransfer);
+
+            ContinueWork();
+
+            return newTransfer;
+        }
+
+        public TransferInfo EnqueueFolderUpload(string source, string target)
+        {
+            Debug.WriteLine("Enquing dir upload");
+
+            TransferInfo newTransfer = new(Id++)
+            {
+                SourcePath = source,
+                TargetPath = target,
+                Thumbnails = false,
+                Title = source,
+                SingleFile = false,
+                Type = TransferType.Upload
             };
 
             TransferEvents.Add(newTransfer.Id, null);
@@ -141,8 +161,6 @@ namespace DirectSFTP
 
         public TransferInfo EnqueueFileDownload(string source, string target, bool thumbnail=false)
         {
-            if (session == null) throw new Exception("No session");
-            Debug.WriteLine("Enquing file download");
             TransferInfo newTransfer = new(Id++)
             {
                 SourcePath = source,
@@ -166,6 +184,26 @@ namespace DirectSFTP
             }
             Transfers.Add(newTransfer);
       
+            ContinueWork();
+
+            return newTransfer;
+        }
+
+        public TransferInfo EnqueueDelete(IReadOnlyList<DirectoryElementInfo> items)
+        {
+            TransferInfo newTransfer = new(Id++)
+            {
+                Title = "Deleting Files",
+                SingleFile = items.Count == 1,
+                Type = TransferType.Delete,
+                FilesToDelete = items,
+            };
+
+            Debug.WriteLine("Enqeueing delete");
+
+            TransferEvents.Add(newTransfer.Id, null);
+            Transfers.Add(newTransfer);
+
             ContinueWork();
 
             return newTransfer;
@@ -205,13 +243,31 @@ namespace DirectSFTP
                     ContinueWork();
                 });
             }
-            else
+            else if (curTransfer.Type == TransferType.Upload)
+            {
+                if (curTrans.SingleFile)
+                {
+                    await Task.Run(() => {
+                        var size = new FileInfo(curTrans.SourcePath).Length;
+                        curTrans.Status = "Uploading";
+                        curTrans.Size = size / 1000000.0;
+                        UploadFile(curTrans, curTrans.SourcePath, curTrans.TargetPath, size);
+                        CleanupAfterTransfer();
+                        ContinueWork();
+                    });
+                }
+                else
+                {
+                    await Task.Run(() => {
+                        UploadFolder(curTransfer);
+                        CleanupAfterTransfer();
+                        ContinueWork();
+                    });
+                }
+            }else if (curTransfer.Type == TransferType.Delete)
             {
                 await Task.Run(() => {
-                    var size = new FileInfo(curTrans.SourcePath).Length;
-                    curTrans.Status = "Uploading";
-                    curTrans.Size = size / 1000000.0;
-                    UploadFile(curTrans, size);
+                    Delete(curTransfer);
                     CleanupAfterTransfer();
                     ContinueWork();
                 });
@@ -245,76 +301,76 @@ namespace DirectSFTP
 
             return path;
         }
-        // return the local dir of thumbnail folder for given directory path
-        public static string GetThumbnailFolder(string dir)
-        {
-            string path = Path.Join(FileSystem.CacheDirectory, "DirectSFTP");
-            Debug.WriteLine(path);
-            return Path.Join(path,dir.Replace("/", "")+".dthumb");
-        }
+        
         // join path with fileName
         public static string RemoteJoinPath(string path, string name)
         {
             return path+ "/" + name;
         }
-
-        public void DeleteFile(string path)
+        // return the local dir of thumbnail folder for given directory path
+        public static string GetThumbnailFolder(string dir)
         {
-            sessionBackground.Delete(path);
-        }
-
-        public void DeleteDirectory(string dir)
-        {
-            Tuple<List<SftpFile>, long> info = null;
-            List<SftpFile> allFiles = new();
-
-            try
-            {
-                info = GetFilesRecursive(dir, allFiles);
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine(ex.Message + "No Permissions to delete dir");
-                return;
-            }
-
-            foreach(SftpFile file in allFiles)
-            {
-                if (file.IsDirectory == false)
-                {
-                    try
-                    {
-                        session.Delete(file.FullName);
-                    }catch(Exception)
-                    {
-                        Debug.WriteLine("Can't delete " + file.FullName);
-                    }
-                }
-            }
-
-            foreach (SftpFile file in allFiles)
-            {
-                if (file.IsDirectory == false)
-                {
-                    try
-                    {
-                        session.Delete(file.FullName);
-                    }
-                    catch (Exception)
-                    {
-                        Debug.WriteLine("Can't delete " + file.FullName);
-                    }
-                }
-            }
-
-
+            string path = Path.Join(FileSystem.CacheDirectory, "DirectSFTP");
+            Debug.WriteLine(path);
+            return Path.Join(path, dir.Replace("/", "") + ".dthumb");
         }
         
+        private void UploadFolder(TransferInfo transfer)
+        {
+            string sourceDirName = Path.GetFileName(transfer.SourcePath);
+            int prefixSize = Path.GetDirectoryName(transfer.SourcePath).Length;
+
+            Debug.WriteLine("Uploading dir " + sourceDirName);
+
+            transfer.Status = "Calculating";
+            TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.CalculatingDistances));
+
+            Debug.WriteLine("Calculating distances");
+
+            string[] files = Directory.GetFiles(transfer.SourcePath, "*.*", SearchOption.AllDirectories);
+
+            double totalSize = 0;
+            foreach (string file in files)
+            {
+                if (File.Exists(file))
+                {
+                    totalSize += new FileInfo(file).Length;
+                }
+            }
+            transfer.Size = totalSize / 1000000.0;
+            transfer.Status = "Downloading";
+            double totalWrote = 0;
+
+            Debug.WriteLine("Uploading files");
+            try
+            {
+                foreach (string file in files)
+                {
+                    if (File.Exists(file))
+                    {
+                        string suffix = Path.GetDirectoryName(file[(prefixSize + 1)..]);
+                        suffix = suffix.Replace('\\', '/');
+                        string targetDir = RemoteJoinPath(transfer.TargetPath, suffix);
+ 
+                        if (session.Exists(targetDir)==false)
+                        {
+                            session.CreateDirectory(targetDir);
+                        }
+                        UploadFile(transfer, file, targetDir, totalSize, totalWrote, false);
+                        totalWrote += new FileInfo(file).Length;
+                    }
+                    if (transfer.Cancel) break;
+                }
+                TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Finished));
+            }
+            catch (Exception)
+            {
+                TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Error));
+            }
+        }
 
         private void DownloadFolder(TransferInfo transfer)
         {
-            Debug.WriteLine("Starting");
-
             string sourceDirName = RemoteGetFileName(transfer.SourcePath);
             int prefixSize = RemoteGetDirName(transfer.SourcePath).Length;
 
@@ -326,7 +382,7 @@ namespace DirectSFTP
             Tuple<List<SftpFile>,long> info = null;
             try
             {
-                info = GetFilesRecursive(transfer.SourcePath, allFiles, transfer.Thumbnails);
+                info = GetFilesRecursive(transfer.SourcePath, allFiles);
             }catch (Exception ex)
             {
                 Debug.WriteLine(ex.Message + "WHat");
@@ -336,10 +392,11 @@ namespace DirectSFTP
             }
 
 
-            Stopwatch sw = Stopwatch.StartNew();
             double totalSize = info.Item2;
             double totalRead = 0;
             transfer.Size = totalSize/1000000.0;
+
+            Debug.WriteLine("Downlaoding folder " + sourceDirName);
 
             transfer.Status = "Downloading";
             try
@@ -347,13 +404,18 @@ namespace DirectSFTP
                 foreach (var file in allFiles)
                 {
                     
-                    string suffix = RemoteGetDirName(file.FullName[(prefixSize + 1)..]);
-                    string targetDir = Path.Join(transfer.TargetPath, suffix);
+                    if (file.IsDirectory==false)
+                    {
+                        string suffix = RemoteGetDirName(file.FullName[(prefixSize + 1)..]);
+                        string targetDir = Path.Join(transfer.TargetPath, suffix);
 
-                    DownloadFile(transfer, totalSize, file.FullName, targetDir, totalRead, false);
+                        DownloadFile(transfer, totalSize, file.FullName, targetDir, totalRead, false);
 
-                    totalRead += file.Length;
-                    if (transfer.Cancel) { break; }
+                        totalRead += file.Length;
+                        if (transfer.Cancel) { break; }
+                    }
+
+                    
                 }
                 TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Finished));
             }
@@ -366,31 +428,23 @@ namespace DirectSFTP
         }
 
         // gets all files in folder and subfolders (disregards hidden folders) and their total size
-        private Tuple<List<SftpFile>,long> GetFilesRecursive(string path, List<SftpFile> list, bool thumbnail=false)
+        private Tuple<List<SftpFile>,long> GetFilesRecursive(string path, List<SftpFile> list, bool includeHidden=false)
         {
             var dirFiles = session.ListDirectory(path);
             long totalSize = 0;
-
-            if (thumbnail)
-            {
-                foreach(var file in dirFiles)
-                {
-                    if (file.Name.StartsWith('.') || file.IsDirectory)  continue;
-                    list.Add(file);
-                    totalSize += file.Length;
-                }
-                return new(list,totalSize);
-            }
             
             foreach (var file in dirFiles)
             {
-                if (file.Name.StartsWith('.')) continue;
+                if (file.Name == "." || file.Name == "..") continue;
+                if (file.Name.StartsWith('.') && includeHidden==false) continue;
+
                 if (file.IsDirectory)
                 {
                     try
                     {
-                        var res = GetFilesRecursive(file.FullName, list, thumbnail);
+                        var res = GetFilesRecursive(file.FullName, list, includeHidden);
                         totalSize += res.Item2;
+                        list.Add(file);
                     }
                     catch (Exception ex)
                     {
@@ -460,13 +514,11 @@ namespace DirectSFTP
                     throw new Exception("Error occured");
                 }
             }
-            CleanupAfterTransfer();
         }
 
-        private void UploadFile(TransferInfo transfer, double totalSize)
+        private void UploadFile(TransferInfo transfer,string sourcePath,string targetFolder, double totalSize, double totalWrote=0, bool signalDone=true)
         {
-            string sourcePath = transfer.SourcePath;
-            string targetPath = RemoteJoinPath(transfer.TargetPath, Path.GetFileName(sourcePath));
+            string targetPath = RemoteJoinPath(targetFolder, Path.GetFileName(sourcePath));
 
             if (File.Exists(sourcePath) == false) throw new Exception("File Not present");
 
@@ -474,7 +526,7 @@ namespace DirectSFTP
 
             using var sourceFile = File.OpenRead(sourcePath);
             var sw = Stopwatch.StartNew();
-
+            double prevWrote = 0;
             try
             {
                 session.UploadFile(sourceFile, targetPath, (bytesWrote) =>
@@ -485,13 +537,15 @@ namespace DirectSFTP
                     }
                     else
                     {
-                        
-                        transfer.Progress = bytesWrote * 100.0 / totalSize;
+                        double dif = bytesWrote - prevWrote;
+                        prevWrote = bytesWrote;
+                        totalWrote += dif;
+                        transfer.Progress = totalWrote * 100.0 / totalSize;
                         transfer.TransSpeed = ((double)bytesWrote) / sw.ElapsedMilliseconds / 1000.0;
                         TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Progress));
                     }
                 });
-                TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Finished));
+                if (signalDone) TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Finished));
             }
             catch(Exception e)
             {
@@ -505,14 +559,129 @@ namespace DirectSFTP
                 {
                     Debug.WriteLine(e.Message);
                     Debug.WriteLine("Error");
-                    TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Error));
+                    if (signalDone) TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Error));
                     File.Delete(targetPath);
                     throw new Exception("Error occured");
                 }
             }
             sw.Stop();
         }
-        
+
+
+        private void Delete(TransferInfo transfer)
+        {
+            double totalSize = transfer.FilesToDelete.Count;
+            double deleted = 0;
+
+            transfer.Status = "Deleting";
+            Debug.WriteLine("Deleting");
+
+            try
+            {
+                foreach (var item in transfer.FilesToDelete)
+                {
+                    if (transfer.Cancel) break;
+                    if (item.IsFile)
+                    {
+                        DeleteFile(item.FileInfo.FullName);
+                    }
+                    else
+                    {
+                        DeleteDirectory(item.FileInfo.FullName);
+                    }
+                    deleted++;
+                    transfer.Progress = deleted * 100.0 / totalSize;
+                    TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Progress));
+                }
+                if (transfer.Cancel)
+                {
+                    TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Cancelled));
+                }
+                else
+                {
+                    TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Finished));
+                }
+            }catch (Exception)
+            {
+                TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Error));
+            }
+
+
+            
+        }
+
+
+        private void DeleteFile(string path)
+        {
+            session.Delete(path);
+        }
+
+        private void DeleteDirectory(string dir)
+        {
+            Debug.WriteLine("Deleting " + dir);
+
+            List<SftpFile> allFiles = new();
+            try
+            {
+                Tuple<List<SftpFile>, long> info = GetFilesRecursive(dir, allFiles, true);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex.Message + "No Permissions to delete dir");
+                return;
+            }
+            Debug.WriteLine("Deleting items");
+            // first delete all files
+            foreach (SftpFile file in allFiles)
+            {
+                if (file.IsDirectory == false)
+                {
+                    try
+                    {
+                        Debug.WriteLine("Deleting " + file.FullName);
+                        session.Delete(file.FullName);
+                    }
+                    catch (Exception)
+                    {
+                        Debug.WriteLine("Can't delete " + file.FullName);
+                    }
+                }
+            }
+
+            Debug.WriteLine("sorting");
+            allFiles.Sort((a, b) => b.Length.CompareTo(a.Length));
+            Debug.WriteLine("Deleting folders");
+            foreach (SftpFile file in allFiles)
+            {
+                if (file.IsDirectory)
+                {
+                    try
+                    {
+                        Debug.WriteLine("Deleting dir " + file);
+                        session.DeleteDirectory(file.FullName);
+                    }
+                    catch (Exception)
+                    {
+                        Debug.WriteLine("Can't delete " + file.FullName);
+                    }
+                }
+            }
+
+            Debug.WriteLine("Deleting root dir");
+            try
+            {
+                Debug.Write(session.Exists(dir));
+                Debug.Write("deleting dir " + dir);
+                session.DeleteDirectory(dir);
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine(e + " WAS");
+            }
+
+
+        }
+
         private void CleanupAfterTransfer()
         {
             working = false;
