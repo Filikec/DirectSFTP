@@ -43,7 +43,6 @@ public partial class ConnectPage : ContentPage
         Command onClear = new Command(() => Dispatcher.Dispatch(()=>dirView.SelectedItems.Clear()));
         selectedOptions = new(this,selectionStack,onClear);
 
-        
 
 #if WINDOWS
         AddDropOptionsWindows();
@@ -97,8 +96,6 @@ public partial class ConnectPage : ContentPage
             return;
         }
 
-        
-
         SFTP.CurDir = dir;
         await Dispatcher.DispatchAsync(() => { 
             Title = dir;
@@ -115,6 +112,7 @@ public partial class ConnectPage : ContentPage
             dirElements.Add(new()
             {
                 FileInfo = file,
+                
                 OnClick = new Command(() =>
                 {
                     if (file.IsDirectory){
@@ -122,24 +120,22 @@ public partial class ConnectPage : ContentPage
                         UpdateDir(file.FullName);
                     }
                 })
+                
 
             });
-
-            if (file.IsDirectory == false)
+            
+            if (ImageHelper.IsImage(file.Name))
             {
                 string thumbnail = Path.Join(thumbFolder, file.Name);
                 if (File.Exists(thumbnail))
                 {
                     dirElements.Last().ImagePath = thumbnail;
                 }
+                if (i < 6 && dirElements.Last().TriedDownload == false) DownloadThumbnail(dirElements.Last());
             }
 
-
-            if (file.IsDirectory==false && i < 6 && dirElements.Last().Updating == false)
-            {
-                DownloadThumbnail(dirElements.Last());
-            }
             i++;
+            
         }
     }
 
@@ -217,12 +213,25 @@ public partial class ConnectPage : ContentPage
 
     private async void DownloadThumbnail(DirectoryElementInfo file)
     {
-        file.Updating = true;
+        file.TriedDownload = true;
 
         string remotePath = SFTP.RemoteJoinPath(SFTP.RemoteGetDirName(file.FileInfo.FullName),".dthumb");
         remotePath = SFTP.RemoteJoinPath(remotePath, file.FileInfo.Name);
 
         string thumbFolder = SFTP.GetThumbnailFolder(SFTP.RemoteGetDirName(file.FileInfo.FullName));
+
+        string thumbnailPath = Path.Join(thumbFolder, file.FileInfo.Name);
+
+        if (File.Exists(thumbnailPath)) {
+            var fileUpdTime = new FileInfo(thumbnailPath).LastWriteTime;
+            
+            if (fileUpdTime >= file.FileInfo.LastWriteTime)
+            {
+                Debug.WriteLine("Don't need to download thumbnail");
+                return;
+            }
+
+        }
 
         var isFile = await Task.Run(() =>
         {
@@ -239,7 +248,7 @@ public partial class ConnectPage : ContentPage
             TransferInfo info = (TransferInfo) a;
             if (b.Item2 == TransferEventType.Finished)
             {
-                file.ImagePath = Path.Join(thumbFolder, file.FileInfo.Name);
+                file.ImagePath = thumbnailPath;
                 file.UpdatedImg();
             }
         };
@@ -353,12 +362,15 @@ public partial class ConnectPage : ContentPage
         transView.ItemsSource = transfers;
         dirView.Scrolled += (a, b) =>
         {
+            Debug.WriteLine("Scrolled HD");
             for (int i = b.FirstVisibleItemIndex; i <= b.LastVisibleItemIndex; i++)
             {
                 if (i < dirElements.Count && i >= 0 && dirElements[i].ImgUpdated == false)
                 {
                     var fileInfo = dirElements[i];
-                    if (fileInfo.FileInfo.IsDirectory == false && fileInfo.Updating == false) DownloadThumbnail(fileInfo);
+
+                    if (ImageHelper.IsImage(fileInfo.FileInfo.Name) 
+                        && fileInfo.TriedDownload == false) DownloadThumbnail(fileInfo);
                 }
             }
         };

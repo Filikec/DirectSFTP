@@ -35,7 +35,6 @@ namespace DirectSFTP
         public Dictionary<int, EventHandler<Tuple<int,TransferEventType>>> TransferEvents { get; private set; }
         public List<TransferInfo> Transfers { get; private set; }
 
-
         private SFTP() {
             TransferEvents = new();
             Transfers = new();
@@ -711,7 +710,12 @@ namespace DirectSFTP
         private void CleanupAfterTransfer()
         {
             working = false;
+            if (TransferEvents.ContainsKey(curTrans.Id))
+            {
+                TransferEvents.Remove(curTrans.Id);
+            }
             curTrans = null;
+            
         }
 
         // Takes a path and for each level checks if it exists
