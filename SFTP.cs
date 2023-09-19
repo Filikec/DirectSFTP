@@ -29,7 +29,7 @@ namespace DirectSFTP
         public static TransferInfo curTrans { get; private set; } = null;
         public static bool IsConnected { get; private set; } = false;
         public static string CurDir = "/";
-        public static event EventHandler Connected;
+        public static event EventHandler Connected, UpdateCurrentDir;
 
         // handlers for different transfers
         public Dictionary<int, EventHandler<Tuple<int,TransferEventType>>> TransferEvents { get; private set; }
@@ -81,13 +81,31 @@ namespace DirectSFTP
             return true;
         }
 
+        // Update the string
+        // null == current dir
         public async Task<IEnumerable<SftpFile>> ListDir(string dir=null)
         {
             dir ??= CurDir;
-
             
             var res = await Task.Run(() =>  { return sessionBackground.ListDirectory(dir); });
             return res;
+        }
+
+        public void EnqueueDirUpdate(string dir)
+        {
+            TransferInfo newTransfer = new(Id++)
+            {
+                SourcePath = dir,
+                TargetPath = "",
+                Thumbnails = false,
+                Title = "dir list",
+                SingleFile = false,
+                Type = TransferType.ListDir
+            };
+
+            Transfers.Add(newTransfer);
+
+            ContinueWork();
         }
 
         // can use the mask to download specific files, leave null to download everything from folder (no hidden folders)
@@ -188,8 +206,7 @@ namespace DirectSFTP
 
             return newTransfer;
         }
-
-        public TransferInfo EnqueueDelete(IReadOnlyList<DirectoryElementInfo> items)
+        public TransferInfo EnqueueDelete(IReadOnlyList<DirectoryElementInfo> items, string curDir)
         {
             TransferInfo newTransfer = new(Id++)
             {
@@ -197,6 +214,7 @@ namespace DirectSFTP
                 SingleFile = items.Count == 1,
                 Type = TransferType.Delete,
                 FilesToDelete = items,
+                SourcePath = curDir,
             };
 
             Debug.WriteLine("Enqeueing delete");
@@ -268,6 +286,16 @@ namespace DirectSFTP
             {
                 await Task.Run(() => {
                     Delete(curTransfer);
+                    CleanupAfterTransfer();
+                    ContinueWork();
+                });
+            }else if (curTransfer.Type == TransferType.ListDir)
+            {
+                await Task.Run(() => {
+                    if (curTransfer.SourcePath == CurDir)
+                    {
+                        UpdateCurrentDir?.Invoke(this, EventArgs.Empty);
+                    }
                     CleanupAfterTransfer();
                     ContinueWork();
                 });
@@ -606,10 +634,7 @@ namespace DirectSFTP
                 TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Error));
             }
 
-
-            
         }
-
 
         private void DeleteFile(string path)
         {

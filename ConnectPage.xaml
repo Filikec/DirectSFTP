@@ -11,11 +11,7 @@
             <PointerGestureRecognizer PointerEntered="OnPointerEntered"
                                       PointerExited="OnPointerExited"/>
         </StackLayout.GestureRecognizers>
-        
-        <FlexLayout Direction="Row" JustifyContent="SpaceEvenly">
-            <Label x:Name="updateLabel"  Text="View's not up-to-date"/>
-        </FlexLayout>
-        
+
         <FlexLayout Direction="Row" JustifyContent="SpaceEvenly" x:Name="selectionStack">
             <Button x:Name="ButtonTryal" Text="Parent Folder" Clicked="OnParentFolderClick" Style="{StaticResource CustomButtonStyle}"/>
             <Button Text="Reload Folder" Clicked="OnReload" Style="{StaticResource CustomButtonStyle}"/>

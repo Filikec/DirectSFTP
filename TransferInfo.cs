@@ -11,7 +11,8 @@ namespace DirectSFTP
     {
         Download,
         Upload,
-        Delete
+        Delete,
+        ListDir,
     }
     public class TransferInfo : BindableObject
     {

@@ -42,7 +42,6 @@ namespace DirectSFTP
                 oldViews.Add(oldView);
             }
 
-            
         }
 
         public void ShowItems()

@@ -33,9 +33,17 @@ public partial class ConnectPage : ContentPage
             if (SFTP.IsConnected) Task.Run(() => { UpdateDir(SFTP.CurDir); });
             else SFTP.Connected += (a, b) => Task.Run(() => { UpdateDir(SFTP.CurDir); });
         };
-        
+
+        SFTP.UpdateCurrentDir += (a, b) =>
+        {
+            Debug.WriteLine("Event to update dir raised");
+            UpdateDir(SFTP.CurDir);
+        };
+
         Command onClear = new Command(() => Dispatcher.Dispatch(()=>dirView.SelectedItems.Clear()));
         selectedOptions = new(this,selectionStack,onClear);
+
+        
 
 #if WINDOWS
         AddDropOptionsWindows();
@@ -64,6 +72,8 @@ public partial class ConnectPage : ContentPage
         {
             EnqueueFileUpload(file.FullPath, SFTP.CurDir);
         }
+        sftp.EnqueueDirUpdate(SFTP.CurDir);
+
         Debug.WriteLine(e.ToString());
     }
     private void OnReload(object sender, EventArgs e)
@@ -92,7 +102,6 @@ public partial class ConnectPage : ContentPage
         SFTP.CurDir = dir;
         await Dispatcher.DispatchAsync(() => { 
             Title = dir;
-            updateLabel.IsVisible = false;
         });
 
         dirElements.Clear();
@@ -115,6 +124,15 @@ public partial class ConnectPage : ContentPage
                 })
 
             });
+            if (file.IsDirectory == false)
+            {
+                string thumbnail = Path.Join(thumbFolder, file.Name);
+                if (File.Exists(thumbnail))
+                {
+                    dirElements.Last().ImagePath = thumbnail;
+                }
+            }
+
 
             if (file.IsDirectory==false && i < 6 && dirElements.Last().Updating == false)
             {
@@ -138,7 +156,6 @@ public partial class ConnectPage : ContentPage
 
         sftp.TransferEvents[transfer.Id] += (object a, Tuple<int, TransferEventType> b) =>
         {
-            TransferInfo info = (TransferInfo)a;
             if (b.Item2 == TransferEventType.Cancelled)
             {
                 Debug.WriteLine("Removing transfer " + "Cancelled");
@@ -150,13 +167,6 @@ public partial class ConnectPage : ContentPage
             }
             else if (b.Item2 == TransferEventType.Finished)
             {
-                if (transfer.Type == TransferType.Upload ||
-                    transfer.Type == TransferType.Delete)
-                {
-                    Dispatcher.DispatchAsync(() => {
-                        updateLabel.IsVisible = true;
-                    });
-                }
                 Debug.WriteLine("Removing transfer " + " Finished");
                 transfers.Remove(transfer);
             }
@@ -198,7 +208,8 @@ public partial class ConnectPage : ContentPage
 
     public void EnqueueDelete(IReadOnlyList<DirectoryElementInfo> items)
     {
-        TransferInfo transfer = sftp.EnqueueDelete(items);
+        TransferInfo transfer = sftp.EnqueueDelete(items,SFTP.CurDir);
+        sftp.EnqueueDirUpdate(SFTP.CurDir);
         CreateTransferButton(transfer);
     }
 
@@ -245,7 +256,6 @@ public partial class ConnectPage : ContentPage
         {
             item.Selected = true;
         }
-        
 
         if (e.CurrentSelection.Count > 0)
         {
@@ -368,6 +378,7 @@ public partial class ConnectPage : ContentPage
                         EnqueueFileUpload(item.Path,SFTP.CurDir);
                     }
                 }
+                sftp.EnqueueDirUpdate(SFTP.CurDir);
             };
             IElement element = dirView;
             var context = Handler?.MauiContext;
