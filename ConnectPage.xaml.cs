@@ -124,6 +124,7 @@ public partial class ConnectPage : ContentPage
                 })
 
             });
+
             if (file.IsDirectory == false)
             {
                 string thumbnail = Path.Join(thumbFolder, file.Name);

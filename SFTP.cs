@@ -217,7 +217,7 @@ namespace DirectSFTP
                 SourcePath = curDir,
             };
 
-            Debug.WriteLine("Enqeueing delete");
+            Debug.WriteLine("Enqeuing delete");
 
             TransferEvents.Add(newTransfer.Id, null);
             Transfers.Add(newTransfer);
@@ -379,11 +379,12 @@ namespace DirectSFTP
                         string suffix = Path.GetDirectoryName(file[(prefixSize + 1)..]);
                         suffix = suffix.Replace('\\', '/');
                         string targetDir = RemoteJoinPath(transfer.TargetPath, suffix);
- 
+                        
                         if (session.Exists(targetDir)==false)
                         {
-                            session.CreateDirectory(targetDir);
+                            CreateDirRec(targetDir);
                         }
+
                         UploadFile(transfer, file, targetDir, totalSize, totalWrote, false);
                         totalWrote += new FileInfo(file).Length;
                     }
@@ -711,6 +712,28 @@ namespace DirectSFTP
         {
             working = false;
             curTrans = null;
+        }
+
+        // Takes a path and for each level checks if it exists
+        // If not, it creates it so that the entire path is creates
+        // (/a/b) would not otherwise be created if (/a) doesn't exist
+        private void CreateDirRec(string path)
+        {
+            var levels = path.Split('/');
+
+            var curPath = "";
+
+            foreach (var level in levels)
+            {
+                if (level != "")
+                {
+                    curPath = RemoteJoinPath(curPath, level);
+                    if (session.Exists(curPath) == false)
+                    {
+                        session.CreateDirectory(curPath);
+                    }
+                }
+            }       
         }
     }
 }
