@@ -557,6 +557,13 @@ namespace DirectSFTP
             double prevWrote = 0;
             try
             {
+                if (ImageHelper.IsImage(Path.GetFileName(sourcePath))){
+                    Task.Run(() =>
+                    {
+                        UploadThumbnailImg(sourcePath, targetFolder);
+                    });
+                }
+                
                 session.UploadFile(sourceFile, targetPath, (bytesWrote) =>
                 {
                     if (transfer.Cancel)
@@ -573,17 +580,7 @@ namespace DirectSFTP
                         TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Progress));
                     }
                 });
-                string pathToThumbnail = ImageHelper.CreateThumbnailFile(sourcePath);
-                using var thumbnailPath = File.OpenRead(pathToThumbnail);
-                var targetThumbnailFolder = RemoteJoinPath(targetFolder, ".dthumb");
-                Debug.WriteLine("Uploading thumbnail to " + targetThumbnailFolder);
-                if (session.Exists(targetThumbnailFolder) == false)
-                {
-                    session.CreateDirectory(targetThumbnailFolder);
-                }
-                var targetThumbnailFile = RemoteJoinPath(targetThumbnailFolder, Path.GetFileName(sourcePath));
-                session.UploadFile(thumbnailPath, targetThumbnailFile);
-
+                
                 if (signalDone) TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Finished));
             }
             catch(Exception e)
@@ -606,6 +603,23 @@ namespace DirectSFTP
             sw.Stop();
         }
 
+        private void UploadThumbnailImg(string originalImgPath, string targetFolder)
+        {
+            string pathToThumbnail = ImageHelper.CreateThumbnailFile(originalImgPath);
+            using (var thumbnailFile = File.OpenRead(pathToThumbnail))
+            {
+                var targetThumbnailFolder = RemoteJoinPath(targetFolder, ".dthumb");
+                Debug.WriteLine("Uploading thumbnail to " + targetThumbnailFolder);
+                if (sessionBackground.Exists(targetThumbnailFolder) == false)
+                {
+                    sessionBackground.CreateDirectory(targetThumbnailFolder);
+                }
+                var targetThumbnailFile = RemoteJoinPath(targetThumbnailFolder, Path.GetFileName(originalImgPath));
+                sessionBackground.UploadFile(thumbnailFile, targetThumbnailFile);
+            }
+            File.Delete(pathToThumbnail);
+        }
+
 
         private void Delete(TransferInfo transfer)
         {
@@ -613,19 +627,14 @@ namespace DirectSFTP
             double deleted = 0;
 
             transfer.Status = "Deleting";
-            Debug.WriteLine("Deleting");
-
             try
             {
                 foreach (var item in transfer.FilesToDelete)
                 {
                     if (transfer.Cancel) break;
-                    Debug.WriteLine("Deleting " + item.FileInfo.FullName);
                     if (item.IsFile)
                     {
-                        Debug.WriteLine("It's a file");
                         DeleteFile(item.FileInfo.FullName);
-                        Debug.WriteLine("Deleted");
                     }
                     else
                     {
@@ -647,7 +656,6 @@ namespace DirectSFTP
             {
                 TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Error));
             }
-
         }
 
         private void DeleteFile(string path)
@@ -657,8 +665,6 @@ namespace DirectSFTP
 
         private void DeleteDirectory(string dir)
         {
-            Debug.WriteLine("Deleting " + dir);
-
             List<SftpFile> allFiles = new();
             try
             {
