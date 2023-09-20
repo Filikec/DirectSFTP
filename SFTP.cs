@@ -1,10 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Security.Cryptography;
-using System.Threading;
-using Microsoft.Maui;
-using Microsoft.Maui.Platform;
+﻿using System.Diagnostics;
 using Renci.SshNet;
 using Renci.SshNet.Sftp;
 
@@ -19,14 +13,35 @@ namespace DirectSFTP
         Created,
         CalculatingDistances
     }
+    /// <summary>
+    /// A singleton class that implements sftp capabilities
+    /// </summary>
     public class SFTP
     {
         private static readonly object lockObj = new();
+
         private static SFTP instance;
+        /// <summary>
+        /// The is that will be used for the next transfer
+        /// </summary>
         private static int Id = 0;
+        /// <summary>
+        /// session - The main session for downloads, uploads etc.
+        /// sessionBackground - The bg session for dir listing, very small uploads etc.
+        /// </summary>
         private SftpClient session, sessionBackground;
+        /// <summary>
+        /// Whether a transfer is being worked on
+        /// </summary>
         private static bool working = false;
+
+        /// <summary>
+        /// Current transfer on which work is being done
+        /// </summary>
         public static TransferInfo curTrans { get; private set; } = null;
+        /// <summary>
+        /// Whether the client is connected
+        /// </summary>
         public static bool IsConnected { get; private set; } = false;
         public static string CurDir = "/";
         public static event EventHandler Connected, UpdateCurrentDir;
@@ -70,9 +85,11 @@ namespace DirectSFTP
             {
                 session.Connect();
                 sessionBackground.Connect();
+                session.KeepAliveInterval = TimeSpan.FromSeconds(30);
+                sessionBackground.KeepAliveInterval = TimeSpan.FromSeconds(30);
                 IsConnected = true;
                 Connected?.Invoke(this, EventArgs.Empty);
-            }catch(Exception)
+            }catch(Exception)   
             {
                 return false;
             }
