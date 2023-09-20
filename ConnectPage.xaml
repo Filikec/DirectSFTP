@@ -7,7 +7,9 @@
         <Style x:Key="buttonSelectionStyle" TargetType="Button" BasedOn="{x:StaticResource CustomButtonStyle}"/>
         <Style x:Key="buttonDeleteStyle" TargetType="Button" BasedOn="{x:StaticResource DelteButtonStyle}"/>
     </ContentPage.Resources>
-
+    <Shell.BackButtonBehavior>
+        <BackButtonBehavior  IsVisible="False"/>
+    </Shell.BackButtonBehavior>
     <StackLayout BackgroundColor="#1c1b1b">
         <StackLayout.GestureRecognizers>
             <PointerGestureRecognizer PointerEntered="OnPointerEntered"
@@ -37,7 +39,7 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="64"/>
                                 <RowDefinition Height="auto"/>
                             </Grid.RowDefinitions>
 
@@ -63,7 +65,7 @@
                                TextColor="White"
                                HorizontalOptions="StartAndExpand"
                                Text="{Binding FileInfo.Name}"
-                               Padding="10,10,0,0"/>
+                               Padding="10,18,0,0"/>
 
                             <BoxView Grid.Row="1"
                                  Grid.ColumnSpan="2"
@@ -77,9 +79,6 @@
             </CollectionView>
         </StackLayout>
         
-
-        
-
         <StackLayout VerticalOptions="StartAndExpand"
                      BackgroundColor="#1c1b1b">
             <Label Text="Transfers" FontSize="Medium" FontAttributes="Bold"/>

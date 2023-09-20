@@ -60,12 +60,13 @@ public partial class MainPage : ContentPage
 
 
     }
-    public void OnSave(object sender, EventArgs ars)
+    public async void OnSave(object sender, EventArgs ars)
     {
         foreach (var item in Settings)
         {
             Preferences.Default.Set(item.Item1, item.Item2.Text);
         }
+        await DisplayAlert("Result", "Saved", "OK");
     }
     public  void OnChooseDownloadLocation(object sender, EventArgs ars)
     {
