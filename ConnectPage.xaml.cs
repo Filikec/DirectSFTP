@@ -79,6 +79,30 @@ public partial class ConnectPage : ContentPage
     {
         UpdateDir(SFTP.CurDir);
     }
+
+    private async void OnCreateFolder(object sender, EventArgs e)
+    {
+        string result = await DisplayPromptAsync("Input", "Enter your text:");
+        if (result == "")
+        {
+            await DisplayAlert("Result", "Can't created such folder", "OK");
+        }
+        else
+        {
+            string newFolderPath = SFTP.RemoteJoinPath(SFTP.CurDir,result);
+            if (sftp.GetSessionList().Exists(newFolderPath))
+            {
+                await DisplayAlert("Result", "Folder already exists", "OK");
+            }
+            else
+            {
+                sftp.GetSessionList().CreateDirectory(newFolderPath);
+                await DisplayAlert("Result", "Folder created", "OK");
+                UpdateDir(SFTP.CurDir);
+            }
+        }
+
+    }
     private async void UpdateDir(string dir)
     {
         IEnumerable<SftpFile> files;
@@ -281,6 +305,17 @@ public partial class ConnectPage : ContentPage
         {
             selectedOptions.HideItems();
         }
+
+        if (e.CurrentSelection.Count == 1)
+        {
+            var file = (DirectoryElementInfo)e.CurrentSelection[0];
+            selectedOptions.ShowRename(true);
+            SetSelectionOnRename(file);
+        }
+        else
+        {
+            selectedOptions.ShowRename(false);
+        }
     }
 
     private void SetSelectionOnDownload(IReadOnlyList<object> items)
@@ -316,6 +351,41 @@ public partial class ConnectPage : ContentPage
                 }
                 EnqueueDelete(dirItems);
             });
+        }));
+    }
+
+    private void SetSelectionOnRename(DirectoryElementInfo curFile)
+    {
+        selectedOptions.SetOnRename(new Command(async () =>
+        {
+            string result = await DisplayPromptAsync("Input", "Enter your text:");
+            if (result == "")
+            {
+                await DisplayAlert("Result", "Can't create document without name", "OK");
+                return;
+            }
+            string newName = SFTP.RemoteJoinPath(SFTP.CurDir, result);
+
+            if (sftp.GetSessionList().Exists(newName))
+            {
+                await DisplayAlert("Result", "Name already exists", "OK");
+                return;
+            }
+
+            sftp.GetSessionList().RenameFile(curFile.FileInfo.FullName, newName);
+            if (ImageHelper.IsImage(curFile.FileInfo.Name))
+            {
+                string thumbnailFolder = SFTP.RemoteJoinPath(SFTP.CurDir, ".dthumb");
+                string thumbnailPath = SFTP.RemoteJoinPath(thumbnailFolder, curFile.FileInfo.Name);
+                if (sftp.GetSessionList().Exists(thumbnailPath))
+                {
+                    string newThumbail = SFTP.RemoteJoinPath(thumbnailFolder, result);
+                    sftp.GetSessionList().RenameFile(thumbnailPath, newThumbail);
+                }
+            }
+            await DisplayAlert("Result", "File renamed to " + result, "OK");
+            Dispatcher.Dispatch(()=>UpdateDir(SFTP.CurDir));
+
         }));
     }
 

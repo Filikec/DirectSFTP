@@ -7,17 +7,20 @@ namespace DirectSFTP
 {
     internal class SelectedOptions
     {
-        public Button download,delete,clear;
+        public Button download,delete,clear,rename;
         public bool IsShowing { get; private set; }
+        private Page page;
         private FlexLayout layout;
         private List<View> oldViews;
 
         public SelectedOptions(ContentPage page, FlexLayout layout, Command onClear)
         {
+            this.page = page;
             delete = new()
             {
                 Text = "Delete",
                 BackgroundColor = Color.FromArgb("#FF0000"),
+                Style = page.Resources["buttonDeleteStyle"] as Style
             };
 
             download = new()
@@ -31,10 +34,14 @@ namespace DirectSFTP
                 Text = "Clear Selection",
                 Style = page.Resources["buttonSelectionStyle"] as Style,
             };
+            rename = new()
+            {
+                Text = "Rename",
+                Style = page.Resources["buttonSelectionStyle"] as Style,
+            };
+
             clear.Released += (a, b) => onClear.Execute(null);
-
             IsShowing = false;
-
             this.layout = layout;
             oldViews = new();
 
@@ -48,8 +55,9 @@ namespace DirectSFTP
         public void ShowItems()
         {
             layout.Clear();
-            layout.Add(download);
             layout.Add(clear);
+            layout.Add(download);
+            layout.Add(rename);
             layout.Add(delete);
             IsShowing = true;
         }
@@ -72,6 +80,19 @@ namespace DirectSFTP
         public void SetOnDelete(Command cmd)
         {
             delete.Command = cmd;
+        }
+
+        public void SetOnRename(Command cmd)
+        {
+            rename.Command = cmd;
+        }
+
+        public void ShowRename(bool show)
+        {
+            page.Dispatcher.Dispatch(() =>
+            {
+                rename.IsVisible = show;
+            });
         }
     }
 }

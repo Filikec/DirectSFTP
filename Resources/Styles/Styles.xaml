@@ -15,7 +15,7 @@
     <Style x:Key="DelteButtonStyle" TargetType="Button">
         <Style.Triggers>
             <Trigger TargetType="Button" Property="IsPressed" Value="True">
-                <Setter Property="BackgroundColor" Value="Red" />
+                <Setter Property="BackgroundColor" Value="DarkRed" />
             </Trigger>
         </Style.Triggers>
     </Style>

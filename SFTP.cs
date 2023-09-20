@@ -620,7 +620,6 @@ namespace DirectSFTP
             File.Delete(pathToThumbnail);
         }
 
-
         private void Delete(TransferInfo transfer)
         {
             double totalSize = transfer.FilesToDelete.Count;
@@ -635,6 +634,16 @@ namespace DirectSFTP
                     if (item.IsFile)
                     {
                         DeleteFile(item.FileInfo.FullName);
+                        if (ImageHelper.IsImage(item.FileInfo.Name))
+                        {
+                            try
+                            {
+                                DeleteThumbnail(item.FileInfo.FullName);
+                            }catch (Exception ex)
+                            {
+                                Debug.WriteLine(ex);
+                            }
+                        }
                     }
                     else
                     {
@@ -658,6 +667,18 @@ namespace DirectSFTP
             }
         }
 
+
+        private void DeleteThumbnail(string fileName)
+        {
+            string thumbnailPath = RemoteGetDirName(fileName);
+            thumbnailPath = RemoteJoinPath(thumbnailPath, ".dthumb");
+            thumbnailPath = RemoteJoinPath(thumbnailPath, RemoteGetFileName(fileName));
+            Debug.WriteLine("Deleting thumbnail in " + thumbnailPath);
+            if (session.Exists(thumbnailPath))
+            {
+                session.DeleteFile(thumbnailPath);
+            }
+        }
         private void DeleteFile(string path)
         {
             session.Delete(path);

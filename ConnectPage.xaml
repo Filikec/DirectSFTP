@@ -5,6 +5,7 @@
              Title="ConnectPage">
     <ContentPage.Resources>
         <Style x:Key="buttonSelectionStyle" TargetType="Button" BasedOn="{x:StaticResource CustomButtonStyle}"/>
+        <Style x:Key="buttonDeleteStyle" TargetType="Button" BasedOn="{x:StaticResource DelteButtonStyle}"/>
     </ContentPage.Resources>
     <StackLayout>
         
@@ -17,6 +18,7 @@
             <Button Text="Parent Folder" Clicked="OnParentFolderClick" Style="{StaticResource CustomButtonStyle}"/>
             <Button Text="Reload Folder" Clicked="OnReload" Style="{StaticResource CustomButtonStyle}"/>
             <Button Text="Upload Files" Clicked="OnUpload" Style="{StaticResource CustomButtonStyle}"/>
+            <Button Text="Create Folder" Clicked="OnCreateFolder" Style="{StaticResource CustomButtonStyle}"/>
         </FlexLayout>
 
         <CollectionView x:Name="dirView"
