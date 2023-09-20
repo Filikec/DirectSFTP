@@ -362,7 +362,6 @@ public partial class ConnectPage : ContentPage
         transView.ItemsSource = transfers;
         dirView.Scrolled += (a, b) =>
         {
-            Debug.WriteLine("Scrolled HD");
             for (int i = b.FirstVisibleItemIndex; i <= b.LastVisibleItemIndex; i++)
             {
                 if (i < dirElements.Count && i >= 0 && dirElements[i].ImgUpdated == false)

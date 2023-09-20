@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Diagnostics;
+using ImageMagick;
 
 namespace DirectSFTP
 {
     public static class ImageHelper
     {
+        public static int THUMBNAIL_SIZE = 64;
         private static HashSet<string> extensions = new()
         {
             ".ase",
@@ -135,7 +137,27 @@ namespace DirectSFTP
             ".heif"
         };
         public static bool IsImage(string fileName) {
-            return extensions.Contains(Path.GetExtension(fileName));
+            return extensions.Contains(Path.GetExtension(fileName).ToLower());
+        }
+
+        public static string CreateThumbnailFile(string sourceImg)
+        {
+            string output = Path.Join(FileSystem.CacheDirectory, "DirectSFTP");
+            output = Path.Join(output,Path.GetFileName(sourceImg));
+
+            Debug.WriteLine("Creating thumbnail for " + sourceImg + " and saving into " + output);
+            using (var image = new MagickImage(sourceImg))
+            {
+                image.Resize(new MagickGeometry(THUMBNAIL_SIZE, THUMBNAIL_SIZE)
+                {
+                    IgnoreAspectRatio = false
+                });
+
+                // Save the resized image
+                image.Write(output);
+            }
+
+            return output;
         }
     }
 }

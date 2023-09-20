@@ -573,6 +573,17 @@ namespace DirectSFTP
                         TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Progress));
                     }
                 });
+                string pathToThumbnail = ImageHelper.CreateThumbnailFile(sourcePath);
+                using var thumbnailPath = File.OpenRead(pathToThumbnail);
+                var targetThumbnailFolder = RemoteJoinPath(targetFolder, ".dthumb");
+                Debug.WriteLine("Uploading thumbnail to " + targetThumbnailFolder);
+                if (session.Exists(targetThumbnailFolder) == false)
+                {
+                    session.CreateDirectory(targetThumbnailFolder);
+                }
+                var targetThumbnailFile = RemoteJoinPath(targetThumbnailFolder, Path.GetFileName(sourcePath));
+                session.UploadFile(thumbnailPath, targetThumbnailFile);
+
                 if (signalDone) TransferEvents[transfer.Id]?.Invoke(transfer, new(transfer.Id, TransferEventType.Finished));
             }
             catch(Exception e)
@@ -609,9 +620,12 @@ namespace DirectSFTP
                 foreach (var item in transfer.FilesToDelete)
                 {
                     if (transfer.Cancel) break;
+                    Debug.WriteLine("Deleting " + item.FileInfo.FullName);
                     if (item.IsFile)
                     {
+                        Debug.WriteLine("It's a file");
                         DeleteFile(item.FileInfo.FullName);
+                        Debug.WriteLine("Deleted");
                     }
                     else
                     {
