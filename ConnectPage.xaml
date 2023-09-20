@@ -7,13 +7,14 @@
         <Style x:Key="buttonSelectionStyle" TargetType="Button" BasedOn="{x:StaticResource CustomButtonStyle}"/>
     </ContentPage.Resources>
     <StackLayout>
+        
         <StackLayout.GestureRecognizers>
             <PointerGestureRecognizer PointerEntered="OnPointerEntered"
                                       PointerExited="OnPointerExited"/>
         </StackLayout.GestureRecognizers>
 
         <FlexLayout Direction="Row" JustifyContent="SpaceEvenly" x:Name="selectionStack">
-            <Button x:Name="ButtonTryal" Text="Parent Folder" Clicked="OnParentFolderClick" Style="{StaticResource CustomButtonStyle}"/>
+            <Button Text="Parent Folder" Clicked="OnParentFolderClick" Style="{StaticResource CustomButtonStyle}"/>
             <Button Text="Reload Folder" Clicked="OnReload" Style="{StaticResource CustomButtonStyle}"/>
             <Button Text="Upload Files" Clicked="OnUpload" Style="{StaticResource CustomButtonStyle}"/>
         </FlexLayout>

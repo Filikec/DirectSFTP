@@ -12,6 +12,13 @@
             </Trigger>
         </Style.Triggers>
     </Style>
+    <Style x:Key="DelteButtonStyle" TargetType="Button">
+        <Style.Triggers>
+            <Trigger TargetType="Button" Property="IsPressed" Value="True">
+                <Setter Property="BackgroundColor" Value="Red" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
     
     <Style TargetType="ActivityIndicator">
         <Setter Property="Color" Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}" />

@@ -17,8 +17,9 @@ namespace DirectSFTP
             delete = new()
             {
                 Text = "Delete",
-                Style = page.Resources["buttonSelectionStyle"] as Style
+                BackgroundColor = Color.FromArgb("#FF0000"),
             };
+
             download = new()
             {
                 Text = "Download",

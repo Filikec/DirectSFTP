@@ -305,8 +305,10 @@ public partial class ConnectPage : ContentPage
     {
         selectedOptions.SetOnDelete(new Command(() =>
         {
-            Task.Run(() =>
+            var result = DisplayAlert("Confirmation", "Do you want to delete?", "Yes", "No");
+            result.ContinueWith(t =>
             {
+                if (t.Result == false) return;
                 List<DirectoryElementInfo> dirItems = new();
                 foreach (DirectoryElementInfo item in items)
                 {
