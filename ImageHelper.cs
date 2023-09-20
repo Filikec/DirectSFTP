@@ -156,7 +156,7 @@ namespace DirectSFTP
                 // Save the resized image
                 image.Write(output);
             }
-
+            
             return output;
         }
     }

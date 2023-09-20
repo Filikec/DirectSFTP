@@ -10,7 +10,8 @@ public static class MauiProgram
 {
 	public static MauiApp CreateMauiApp()
 	{
-		var builder = MauiApp.CreateBuilder();
+        GlobalHooks.StartHooks();
+        var builder = MauiApp.CreateBuilder();
 		builder
 			.UseMauiApp<App>()
             .UseMauiCommunityToolkit()
@@ -31,9 +32,7 @@ public static class MauiProgram
                 }));
 #endif
             });
-
-		Task.Run(() => { SFTP.GetInstance().Connect("46.13.164.29", 50001, "bandaska", "raketaletadlo"); });
-
+        
 #if DEBUG
 		builder.Logging.AddDebug();
 #endif

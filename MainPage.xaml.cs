@@ -1,10 +1,5 @@
-﻿using System.Collections;
-using System.Collections.ObjectModel;
-using System.Diagnostics;
-using System.Threading;
-using CommunityToolkit.Maui.Storage;
-using Microsoft.Maui;
-using Microsoft.Maui.Controls.PlatformConfiguration;
+﻿using CommunityToolkit.Maui.Storage;
+
 
 namespace DirectSFTP;
 
@@ -32,6 +27,10 @@ public partial class MainPage : ContentPage
                 item.Item2.Text = pref;
             }
         }
+        Loaded += (a, b) =>
+        {
+            Application.Current.UserAppTheme = AppTheme.Dark;
+        };
         downloadFolderLabel.Text = SFTP.GetDownloadFolder();
     }
 

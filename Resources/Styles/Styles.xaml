@@ -5,14 +5,18 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
     <Style x:Key="CustomButtonStyle" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="DimGray"/>
+        <Setter Property="TextColor" Value="White" />
         <!-- Define a trigger for the hover effect -->
         <Style.Triggers>
             <Trigger TargetType="Button" Property="IsPressed" Value="True">
-                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray500}}" />
+                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray200}}" />
             </Trigger>
         </Style.Triggers>
     </Style>
     <Style x:Key="DelteButtonStyle" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="Red"/>
+        <Setter Property="TextColor" Value="White" />
         <Style.Triggers>
             <Trigger TargetType="Button" Property="IsPressed" Value="True">
                 <Setter Property="BackgroundColor" Value="DarkRed" />

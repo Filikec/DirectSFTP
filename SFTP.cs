@@ -79,6 +79,13 @@ namespace DirectSFTP
 
         public bool Connect(string host, int port, string user, string pswd)
         {
+            if (IsConnected)
+            {
+                session.Disconnect();
+                sessionBackground.Disconnect();
+                IsConnected = false;
+            }
+
             session = new(host,port,user,pswd);
             sessionBackground = new(host, port, user, pswd);
             try

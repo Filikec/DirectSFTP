@@ -7,58 +7,82 @@
         <Style x:Key="buttonSelectionStyle" TargetType="Button" BasedOn="{x:StaticResource CustomButtonStyle}"/>
         <Style x:Key="buttonDeleteStyle" TargetType="Button" BasedOn="{x:StaticResource DelteButtonStyle}"/>
     </ContentPage.Resources>
-    <StackLayout>
-        
+
+    <StackLayout BackgroundColor="#1c1b1b">
         <StackLayout.GestureRecognizers>
             <PointerGestureRecognizer PointerEntered="OnPointerEntered"
                                       PointerExited="OnPointerExited"/>
         </StackLayout.GestureRecognizers>
 
-        <FlexLayout Direction="Row" JustifyContent="SpaceEvenly" x:Name="selectionStack">
-            <Button Text="Parent Folder" Clicked="OnParentFolderClick" Style="{StaticResource CustomButtonStyle}"/>
-            <Button Text="Reload Folder" Clicked="OnReload" Style="{StaticResource CustomButtonStyle}"/>
-            <Button Text="Upload Files" Clicked="OnUpload" Style="{StaticResource CustomButtonStyle}"/>
-            <Button Text="Create Folder" Clicked="OnCreateFolder" Style="{StaticResource CustomButtonStyle}"/>
-        </FlexLayout>
+        <StackLayout VerticalOptions="FillAndExpand"
+                     BackgroundColor="{StaticResource BackgroundColor}">
+            
+            <FlexLayout Direction="Row" JustifyContent="Start" x:Name="selectionStack">
+                <Button Text="Parent Folder" Clicked="OnParentFolderClick" Style="{StaticResource CustomButtonStyle}"/>
+                <Button Text="Reload Folder" Clicked="OnReload" Style="{StaticResource CustomButtonStyle}"/>
+                <Button Text="Upload Files" Clicked="OnUpload" Style="{StaticResource CustomButtonStyle}"/>
+                <Button Text="Create Folder" Clicked="OnCreateFolder" Style="{StaticResource CustomButtonStyle}"/>
+            </FlexLayout>
 
-        <CollectionView x:Name="dirView"
+            <CollectionView x:Name="dirView"
                         VerticalOptions="FillAndExpand"
                         SelectionMode="Multiple"
-                        SelectionChanged="OnSelectionChanged">
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
-                    <Grid Padding="30">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="auto" />
-                        </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
+                        SelectionChanged="OnSelectionChanged"
+                        HorizontalOptions="FillAndExpand">
+                <CollectionView.ItemTemplate >
+                    <DataTemplate>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="64" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="auto"/>
+                            </Grid.RowDefinitions>
 
-                        <Label Grid.Column="0"
+                            <ImageButton Grid.Column="0" 
+                                     Grid.Row="0"
+                                     HorizontalOptions="Start"
+                                     Command="{Binding OnClick}"
+                                     IsVisible="{Binding FileInfo.IsDirectory}"
+                                     Source="folder.png"
+                                     BackgroundColor="Transparent"
+                                     Padding="20,0,0,0"/>
+
+                            <ImageButton Grid.Column="0" 
+                                     Grid.Row="0"
+                                     HorizontalOptions="Start"
+                                     IsVisible="{Binding IsFile}"
+                                     Source="{Binding ImagePath}"
+                                     BackgroundColor="Transparent"
+                                     Padding="20,0,0,0"/>
+
+                            <Label Grid.Column="1" 
+                               Grid.Row="0"
+                               TextColor="White"
+                               HorizontalOptions="StartAndExpand"
                                Text="{Binding FileInfo.Name}"
-                               IsVisible="{Binding IsFile}"/>
+                               Padding="10,10,0,0"/>
 
-                        <Button Grid.Column="0"
-                                Text="{Binding FileInfo.Name}"
-                                Command="{Binding OnClick}"
-                                FontAttributes="Bold"
-                                Style="{StaticResource CustomButtonStyle}"
-                                IsVisible="{Binding FileInfo.IsDirectory}"/>
-
-                        <Image Grid.Column="1" Source="{Binding ImagePath}" Aspect="Center"/>
-
-                        <CheckBox Grid.Column="2" IsChecked="{Binding Selected}" IsEnabled="False"/>
-
-                    </Grid>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
+                            <BoxView Grid.Row="1"
+                                 Grid.ColumnSpan="2"
+                                 HeightRequest="1" 
+                                 BackgroundColor="Black" 
+                                 Color="Black"
+                                 HorizontalOptions="FillAndExpand"/>
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </StackLayout>
         
-        <StackLayout VerticalOptions="StartAndExpand">
-            <Label Text="Transfers"/>
+
+        
+
+        <StackLayout VerticalOptions="StartAndExpand"
+                     BackgroundColor="#1c1b1b">
+            <Label Text="Transfers" FontSize="Medium" FontAttributes="Bold"/>
             <Grid Padding="30">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -71,11 +95,11 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <Label Grid.Column="0" Text="Source File"/>
-                <Label Grid.Column="1" Text="Status"/>
-                <Label Grid.Column="2" Text="Progress"/>
-                <Label Grid.Column="3" Text="Speed"/>
-                <Label Grid.Column="4" Text="Size"/>
+                <Label Grid.Column="0" Text="Source File" FontAttributes="Bold"/>
+                <Label Grid.Column="1" Text="Status" FontAttributes="Bold"/>
+                <Label Grid.Column="2" Text="Progress" FontAttributes="Bold"/>
+                <Label Grid.Column="3" Text="Speed" FontAttributes="Bold"/>
+                <Label Grid.Column="4" Text="Size" FontAttributes="Bold"/>
                 <Label Grid.Column="5" Text=""/>
             </Grid>
             <CollectionView x:Name="transView"
@@ -133,6 +157,7 @@
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>
+            
         </StackLayout>
     </StackLayout>
     

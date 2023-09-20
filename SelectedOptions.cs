@@ -19,7 +19,6 @@ namespace DirectSFTP
             delete = new()
             {
                 Text = "Delete",
-                BackgroundColor = Color.FromArgb("#FF0000"),
                 Style = page.Resources["buttonDeleteStyle"] as Style
             };
 

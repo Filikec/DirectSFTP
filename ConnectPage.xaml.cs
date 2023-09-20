@@ -17,6 +17,7 @@ public partial class ConnectPage : ContentPage
     private SelectedOptions selectedOptions;
     private Stack<string> prevPaths;
     private bool mouseInWindow = false;
+    private static bool setup = false;
 
     public ConnectPage()
     {
@@ -25,7 +26,12 @@ public partial class ConnectPage : ContentPage
         prevPaths = new();
         sftp = SFTP.GetInstance();
 
+        
         AddHooks();
+        
+        
+
+        
         SetupDirView();
 
         Loaded += (a, b) =>
@@ -156,6 +162,10 @@ public partial class ConnectPage : ContentPage
                     dirElements.Last().ImagePath = thumbnail;
                 }
                 if (i < 6 && dirElements.Last().TriedDownload == false) DownloadThumbnail(dirElements.Last());
+            }
+            else if (file.IsDirectory==false)
+            {
+                dirElements.Last().ImagePath = "documents.png";
             }
 
             i++;
@@ -390,33 +400,38 @@ public partial class ConnectPage : ContentPage
     }
 
     private void AddHooks()
-    {
-        var hook = new TaskPoolGlobalHook();
-        hook.KeyPressed += (a, b) =>
+    {        
+        GlobalHooks.hooks.KeyPressed += (a, b) =>
         {
             if (!mouseInWindow) return;
 
             if (b.Data.KeyCode == SharpHook.Native.KeyCode.VcEscape && dirView.SelectedItems.Count > 0)
             {
-                Dispatcher.Dispatch(()=> dirView.SelectedItems.Clear());
-            }else if (b.Data.KeyCode == SharpHook.Native.KeyCode.VcF5)
+                Dispatcher.Dispatch(() => dirView.SelectedItems.Clear());
+            }
+            else if (b.Data.KeyCode == SharpHook.Native.KeyCode.VcF5)
             {
                 UpdateDir(SFTP.CurDir);
             }
         };
-        hook.MousePressed += (a, b) =>
+
+        GlobalHooks.hooks.MousePressed += (a, b) =>
         {
             if (!mouseInWindow) return;
 
-            if (b.Data.Button == SharpHook.Native.MouseButton.Button4) OnParentFolderClick(null, null);
+            if (b.Data.Button == SharpHook.Native.MouseButton.Button4)
+            {
+                OnParentFolderClick(null, null);
+            }
             else if (b.Data.Button == SharpHook.Native.MouseButton.Button5 && prevPaths.Count > 0)
             {
                 UpdateDir(prevPaths.First());
                 prevPaths.Pop();
             }
         };
-
-        hook.RunAsync();
+        
+        
+        
     }
 
     private void OnPointerEntered(object sender, PointerEventArgs e)
