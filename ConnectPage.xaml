@@ -10,6 +10,8 @@
     <Shell.BackButtonBehavior>
         <BackButtonBehavior  IsVisible="False"/>
     </Shell.BackButtonBehavior>
+
+
     <StackLayout BackgroundColor="#1c1b1b">
         <StackLayout.GestureRecognizers>
             <PointerGestureRecognizer PointerEntered="OnPointerEntered"
@@ -25,7 +27,8 @@
                 <Button Text="Upload Files" Clicked="OnUpload" Style="{StaticResource CustomButtonStyle}"/>
                 <Button Text="Create Folder" Clicked="OnCreateFolder" Style="{StaticResource CustomButtonStyle}"/>
             </FlexLayout>
-
+            <Label x:Name="selectedLabel" HorizontalOptions="StartAndExpand"/>
+            
             <CollectionView x:Name="dirView"
                         VerticalOptions="FillAndExpand"
                         SelectionMode="Multiple"
@@ -36,6 +39,7 @@
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="64" />
+                                <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Grid.RowDefinitions>
@@ -66,9 +70,21 @@
                                HorizontalOptions="StartAndExpand"
                                Text="{Binding FileInfo.Name}"
                                Padding="10,18,0,0"/>
+                            
+                            <Label Grid.Column="2" 
+                               Grid.Row="0"
+                               TextColor="White"
+                               HorizontalOptions="End"
+                               Padding="0,18,10,0"
+                               IsVisible="{Binding IsFile}">
+                                <Label.Text>
+                                    <Binding Path="Size" StringFormat="{}{0:F3} MB" />
+                                </Label.Text>
+                            </Label>
+
 
                             <BoxView Grid.Row="1"
-                                 Grid.ColumnSpan="2"
+                                 Grid.ColumnSpan="3"
                                  HeightRequest="1" 
                                  BackgroundColor="Black" 
                                  Color="Black"

@@ -6,6 +6,7 @@ using Renci.SshNet.Sftp;
 using SharpHook;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Platform;
+using Renci.SshNet;
 
 namespace DirectSFTP;
 
@@ -17,7 +18,7 @@ public partial class ConnectPage : ContentPage
     private SelectedOptions selectedOptions;
     private Stack<string> prevPaths;
     private bool mouseInWindow = false;
-    private static bool setup = false;
+    private SortingOptions<SftpFile> sortingOptions;
 
     public ConnectPage()
     {
@@ -28,8 +29,6 @@ public partial class ConnectPage : ContentPage
 
         
         AddHooks();
-        
-        
 
         
         SetupDirView();
@@ -48,7 +47,7 @@ public partial class ConnectPage : ContentPage
 
         Command onClear = new Command(() => Dispatcher.Dispatch(()=>dirView.SelectedItems.Clear()));
         selectedOptions = new(this,selectionStack,onClear);
-
+        InitSortingOptions();
 
 #if WINDOWS
         AddDropOptionsWindows();
@@ -125,7 +124,7 @@ public partial class ConnectPage : ContentPage
             Debug.WriteLine(ex.ToString() + " <<<");
             return;
         }
-
+        
         SFTP.CurDir = dir;
         await Dispatcher.DispatchAsync(() => { 
             Title = dir;
@@ -133,6 +132,13 @@ public partial class ConnectPage : ContentPage
 
         dirElements.Clear();
         string thumbFolder = SFTP.GetThumbnailFolder(dir);
+
+
+
+        if (sortingOptions.CurSorting != null)
+        {
+            files = sortingOptions.Sort(files);
+        }
 
         int i = 0;
         foreach (var file in files)
@@ -301,9 +307,17 @@ public partial class ConnectPage : ContentPage
             item.Selected = true;
         }
 
+        FormattedString formattedString = new FormattedString();
+        formattedString.Spans.Add(new Span { Text = "Selected items: " });
+        formattedString.Spans.Add(new Span { Text = e.CurrentSelection.Count.ToString(), FontAttributes = FontAttributes.Bold });
+
+        selectedLabel.FormattedText = formattedString;
+        selectedLabel.IsVisible = e.CurrentSelection.Count > 0;
+
+
         if (e.CurrentSelection.Count > 0)
         {
-
+            
             if (selectedOptions.IsShowing == false)
             {
                 selectedOptions.ShowItems();
@@ -319,12 +333,13 @@ public partial class ConnectPage : ContentPage
         if (e.CurrentSelection.Count == 1)
         {
             var file = (DirectoryElementInfo)e.CurrentSelection[0];
-            selectedOptions.ShowRename(true);
+            selectedOptions.OneSelected(true);
             SetSelectionOnRename(file);
+            SetSelectionOnCalc(file);
         }
         else
         {
-            selectedOptions.ShowRename(false);
+            selectedOptions.OneSelected(false);
         }
     }
 
@@ -345,7 +360,7 @@ public partial class ConnectPage : ContentPage
             }
         }));
     }
-
+    
     private void SetSelectionOnDelete(IReadOnlyList<object> items)
     {
         selectedOptions.SetOnDelete(new Command(() =>
@@ -399,6 +414,22 @@ public partial class ConnectPage : ContentPage
         }));
     }
 
+    private void SetSelectionOnCalc(DirectoryElementInfo curFile)
+    {
+        selectedOptions.SetOnCalc(new Command(() =>
+        {
+            Task.Run(() =>
+            {
+                var res = sftp.GetFolderSize(curFile.FileInfo);
+                string size = (res.Item1/1000000.0).ToString("0.###");
+                Dispatcher.Dispatch(async () =>
+                {
+                    await DisplayAlert("Result", "Folder has " + size + "MB and contains " + res.Item2.ToString() + " files.", "OK");
+                });
+            });
+        }));
+    }
+
     private void AddHooks()
     {        
         GlobalHooks.hooks.KeyPressed += (a, b) =>
@@ -429,9 +460,6 @@ public partial class ConnectPage : ContentPage
                 prevPaths.Pop();
             }
         };
-        
-        
-        
     }
 
     private void OnPointerEntered(object sender, PointerEventArgs e)
@@ -460,6 +488,36 @@ public partial class ConnectPage : ContentPage
                 }
             }
         };
+    }
+
+    private void SortByDate(object sender, EventArgs e)
+    {
+        var items = new List<DirectoryElementInfo>(dirElements);
+        items.Sort((a,b) => {return b.FileInfo.LastWriteTime.CompareTo(a.FileInfo.LastWriteTime); });
+        dirElements.Clear();
+        foreach(var item in items)
+        {
+            dirElements.Add(item);
+        }
+    }
+    private void SortByName(object sender, EventArgs e)
+    {
+        var items = new List<DirectoryElementInfo>(dirElements);
+        items.Sort((a, b) => { return a.FileInfo.Name.CompareTo(b.FileInfo.Name); });
+        dirElements.Clear();
+        foreach (var item in items)
+        {
+            dirElements.Add(item);
+        }
+    }
+    private void InitSortingOptions()
+    {
+        sortingOptions = new(this);
+        sortingOptions.AddSortOption(el => el.Name,"Name");
+        sortingOptions.AddSortOption(el => el.LastWriteTime, "Date");
+        sortingOptions.AddSortOption(el => el.Length, "Size");
+        sortingOptions.Show();
+        sortingOptions.ChangedOption += (a, b) => UpdateDir(SFTP.CurDir);
     }
 #if WINDOWS
     private void AddDropOptionsWindows()

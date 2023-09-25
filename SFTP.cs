@@ -479,6 +479,13 @@ namespace DirectSFTP
             
         }
 
+        public Tuple<double,long> GetFolderSize(SftpFile folder)
+        {
+            List<SftpFile> list = new();
+            var res = GetFilesRecursive(folder.FullName, list, true);
+            return new(res.Item2, res.Item1.Count);
+        }
+
         // gets all files in folder and subfolders (disregards hidden folders) and their total size
         private Tuple<List<SftpFile>,long> GetFilesRecursive(string path, List<SftpFile> list, bool includeHidden=false)
         {
@@ -629,7 +636,9 @@ namespace DirectSFTP
 
         private void UploadThumbnailImg(string originalImgPath, string targetFolder)
         {
+            Debug.WriteLine("Trying to create thumbnail for " + originalImgPath + " in " + targetFolder);
             string pathToThumbnail = ImageHelper.CreateThumbnailFile(originalImgPath);
+            Debug.WriteLine("Created file");
             using (var thumbnailFile = File.OpenRead(pathToThumbnail))
             {
                 var targetThumbnailFolder = RemoteJoinPath(targetFolder, ".dthumb");

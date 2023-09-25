@@ -7,7 +7,7 @@ namespace DirectSFTP
 {
     internal class SelectedOptions
     {
-        public Button download,delete,clear,rename;
+        public Button download,delete,clear,rename,calculateSize;
         public bool IsShowing { get; private set; }
         private Page page;
         private FlexLayout layout;
@@ -38,6 +38,11 @@ namespace DirectSFTP
                 Text = "Rename",
                 Style = page.Resources["buttonSelectionStyle"] as Style,
             };
+            calculateSize = new()
+            {
+                Text = "Calculate Size",
+                Style = page.Resources["buttonSelectionStyle"] as Style,
+            };
 
             clear.Released += (a, b) => onClear.Execute(null);
             IsShowing = false;
@@ -57,6 +62,7 @@ namespace DirectSFTP
             layout.Add(clear);
             layout.Add(download);
             layout.Add(rename);
+            layout.Add(calculateSize);
             layout.Add(delete);
             IsShowing = true;
         }
@@ -86,11 +92,17 @@ namespace DirectSFTP
             rename.Command = cmd;
         }
 
-        public void ShowRename(bool show)
+        public void SetOnCalc(Command cmd)
+        {
+            calculateSize.Command = cmd;
+        }
+
+        public void OneSelected(bool show)
         {
             page.Dispatcher.Dispatch(() =>
             {
                 rename.IsVisible = show;
+                calculateSize.IsVisible = show;
             });
         }
     }
