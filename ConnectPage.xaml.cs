@@ -383,7 +383,11 @@ public partial class ConnectPage : ContentPage
     {
         selectedOptions.SetOnRename(new Command(async () =>
         {
-            string result = await DisplayPromptAsync("Input", "New name (don't forget extension):");
+            string result = await DisplayPromptAsync("Input", "New name (don't forget extension):",initialValue:curFile.FileInfo.Name);
+            if (result == null)
+            {
+                return;
+            }
             if (result == "")
             {
                 await DisplayAlert("Result", "Can't create document without name", "OK");
