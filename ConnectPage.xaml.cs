@@ -13,6 +13,7 @@ namespace DirectSFTP;
 public partial class ConnectPage : ContentPage
 {
     private ObservableCollection<DirectoryElementInfo> dirElements = new();
+    private ObservableCollection<DirectoryElementInfo> dirAllElements = new();
     private ObservableCollection<TransferInfo> transfers = new();
     private SFTP sftp;
     private SelectedOptions selectedOptions;
@@ -27,10 +28,8 @@ public partial class ConnectPage : ContentPage
         prevPaths = new();
         sftp = SFTP.GetInstance();
 
-        
         AddHooks();
 
-        
         SetupDirView();
 
         Loaded += (a, b) =>
@@ -67,6 +66,11 @@ public partial class ConnectPage : ContentPage
         path = SFTP.RemoteGetDirName(path);
 
         UpdateDir(path);
+    }
+
+    private void OnSearchChanged(object sender, TextChangedEventArgs e)
+    {
+        SetShowedDirItems(e.NewTextValue);
     }
 
     private async void OnUpload(object sender, EventArgs e)
@@ -130,10 +134,8 @@ public partial class ConnectPage : ContentPage
             Title = dir;
         });
 
-        dirElements.Clear();
+        dirAllElements.Clear();
         string thumbFolder = SFTP.GetThumbnailFolder(dir);
-
-
 
         if (sortingOptions.CurSorting != null)
         {
@@ -144,8 +146,8 @@ public partial class ConnectPage : ContentPage
         foreach (var file in files)
         {
             if (file.Name.StartsWith('.')) continue;
-            
-            dirElements.Add(new()
+
+            dirAllElements.Add(new()
             {
                 FileInfo = file,
                 
@@ -165,17 +167,32 @@ public partial class ConnectPage : ContentPage
                 string thumbnail = Path.Join(thumbFolder, file.Name);
                 if (File.Exists(thumbnail))
                 {
-                    dirElements.Last().ImagePath = thumbnail;
+                    dirAllElements.Last().ImagePath = thumbnail;
                 }
-                if (i < 6 && dirElements.Last().TriedDownload == false) DownloadThumbnail(dirElements.Last());
+                if (i < 6 && dirAllElements.Last().TriedDownload == false) DownloadThumbnail(dirAllElements.Last());
             }
             else if (file.IsDirectory==false)
             {
-                dirElements.Last().ImagePath = "documents.png";
+                dirAllElements.Last().ImagePath = "documents.png";
             }
 
             i++;
             
+        }
+
+        SetShowedDirItems(search.Text);
+    }
+
+    private void SetShowedDirItems(string searchText)
+    {
+        dirElements.Clear();
+        foreach (DirectoryElementInfo item in dirAllElements)
+        {
+            Debug.WriteLine(item.FileInfo.Name + "<<");
+            if (searchText == null || item.FileInfo.Name.StartsWith(searchText))
+            {
+                dirElements.Add(item);
+            }
         }
     }
 
@@ -414,7 +431,6 @@ public partial class ConnectPage : ContentPage
             }
             await DisplayAlert("Result", "File renamed to " + result, "OK");
             Dispatcher.Dispatch(()=>UpdateDir(SFTP.CurDir));
-
         }));
     }
 

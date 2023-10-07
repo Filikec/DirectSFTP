@@ -10,10 +10,10 @@ namespace DirectSFTP
         public Button download,delete,clear,rename,calculateSize;
         public bool IsShowing { get; private set; }
         private Page page;
-        private FlexLayout layout;
+        private HorizontalStackLayout layout;
         private List<View> oldViews;
 
-        public SelectedOptions(ContentPage page, FlexLayout layout, Command onClear)
+        public SelectedOptions(ContentPage page, HorizontalStackLayout layout, Command onClear)
         {
             this.page = page;
             delete = new()

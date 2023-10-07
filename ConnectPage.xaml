@@ -12,7 +12,8 @@
     </Shell.BackButtonBehavior>
 
 
-    <StackLayout BackgroundColor="#1c1b1b">
+    <StackLayout BackgroundColor="#1c1b1b" HorizontalOptions="FillAndExpand">
+        
         <StackLayout.GestureRecognizers>
             <PointerGestureRecognizer PointerEntered="OnPointerEntered"
                                       PointerExited="OnPointerExited"/>
@@ -20,13 +21,26 @@
 
         <StackLayout VerticalOptions="FillAndExpand"
                      BackgroundColor="{StaticResource BackgroundColor}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <HorizontalStackLayout Grid.Column="0" x:Name="selectionStack" HorizontalOptions="StartAndExpand">
+                    <Button Text="Parent Folder" Clicked="OnParentFolderClick" Style="{StaticResource CustomButtonStyle}"/>
+                    <Button Text="Reload Folder" Clicked="OnReload" Style="{StaticResource CustomButtonStyle}"/>
+                    <Button Text="Upload Files" Clicked="OnUpload" Style="{StaticResource CustomButtonStyle}"/>
+                    <Button Text="Create Folder" Clicked="OnCreateFolder" Style="{StaticResource CustomButtonStyle}"/>
+                </HorizontalStackLayout>
+
+                <HorizontalStackLayout Grid.Column="1" HorizontalOptions="EndAndExpand">
+                    <Image WidthRequest="32" HeightRequest="32" Source="search.png"/>
+                    <Entry x:Name="search"  Placeholder="Search" TextChanged="OnSearchChanged"></Entry>
+                </HorizontalStackLayout>
+            </Grid>
             
-            <FlexLayout Direction="Row" JustifyContent="Start" x:Name="selectionStack">
-                <Button Text="Parent Folder" Clicked="OnParentFolderClick" Style="{StaticResource CustomButtonStyle}"/>
-                <Button Text="Reload Folder" Clicked="OnReload" Style="{StaticResource CustomButtonStyle}"/>
-                <Button Text="Upload Files" Clicked="OnUpload" Style="{StaticResource CustomButtonStyle}"/>
-                <Button Text="Create Folder" Clicked="OnCreateFolder" Style="{StaticResource CustomButtonStyle}"/>
-            </FlexLayout>
+            
+
             <Label x:Name="selectedLabel" HorizontalOptions="StartAndExpand"/>
             
             <CollectionView x:Name="dirView"
