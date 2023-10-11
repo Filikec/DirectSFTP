@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using Renci.SshNet;
 using Renci.SshNet.Sftp;
 
@@ -47,8 +48,8 @@ namespace DirectSFTP
         public static event EventHandler Connected, UpdateCurrentDir;
 
         // handlers for different transfers
-        public Dictionary<int, EventHandler<Tuple<int,TransferEventType>>> TransferEvents { get; private set; }
-        public List<TransferInfo> Transfers { get; private set; }
+        public ConcurrentDictionary<int, EventHandler<Tuple<int,TransferEventType>>> TransferEvents { get; private set; }
+        public ConcurrentQueue<TransferInfo> Transfers { get; private set; }
 
         private SFTP() {
             TransferEvents = new();
@@ -126,7 +127,7 @@ namespace DirectSFTP
                 Type = TransferType.ListDir
             };
 
-            Transfers.Add(newTransfer);
+            Transfers.Enqueue(newTransfer);
 
             ContinueWork();
         }
@@ -141,13 +142,13 @@ namespace DirectSFTP
                    SourcePath = source,
                    TargetPath = target,
                    Thumbnails = false,
-                   Title = source,
+                   Title = RemoteGetFileName(source),
                    SingleFile = false,
                    Type = TransferType.Download
             };
 
-            TransferEvents.Add(newTransfer.Id, null);
-            Transfers.Add(newTransfer);
+            TransferEvents.TryAdd(newTransfer.Id, null);
+            Transfers.Enqueue(newTransfer);
 
             ContinueWork();
 
@@ -163,13 +164,13 @@ namespace DirectSFTP
                 SourcePath = source,
                 TargetPath = target,
                 Thumbnails = false,
-                Title = source,
+                Title = Path.GetFileName(source),
                 SingleFile = false,
                 Type = TransferType.Upload
             };
 
-            TransferEvents.Add(newTransfer.Id, null);
-            Transfers.Add(newTransfer);
+            TransferEvents.TryAdd(newTransfer.Id, null);
+            Transfers.Enqueue(newTransfer);
 
             ContinueWork();
 
@@ -187,13 +188,13 @@ namespace DirectSFTP
                 SourcePath = source,
                 TargetPath = target,
                 Thumbnails = false,
-                Title = source,
+                Title = Path.GetFileName(source),
                 SingleFile = true,
                 Type = TransferType.Upload
             };
 
-            TransferEvents.Add(newTransfer.Id, null);
-            Transfers.Add(newTransfer);
+            TransferEvents.TryAdd(newTransfer.Id, null);
+            Transfers.Enqueue(newTransfer);
 
             ContinueWork();
 
@@ -207,12 +208,12 @@ namespace DirectSFTP
                 SourcePath = source,
                 TargetPath = target,
                 Thumbnails = thumbnail,
-                Title = source,
+                Title = RemoteGetFileName(source),
                 SingleFile = true,
                 Type = TransferType.Download
             };
 
-            TransferEvents.Add(newTransfer.Id, null);
+            TransferEvents.TryAdd(newTransfer.Id, null);
 
             if (thumbnail)
             {
@@ -223,7 +224,7 @@ namespace DirectSFTP
 
                 return newTransfer;
             }
-            Transfers.Add(newTransfer);
+            Transfers.Enqueue(newTransfer);
       
             ContinueWork();
 
@@ -242,8 +243,8 @@ namespace DirectSFTP
 
             Debug.WriteLine("Enqeuing delete");
 
-            TransferEvents.Add(newTransfer.Id, null);
-            Transfers.Add(newTransfer);
+            TransferEvents.TryAdd(newTransfer.Id, null);
+            Transfers.Enqueue(newTransfer);
 
             ContinueWork();
 
@@ -254,15 +255,22 @@ namespace DirectSFTP
         {
             if (working) return;
             if (session == null) throw new Exception("No session");
-            if (Transfers.Count == 0)
+
+            Debug.WriteLine(Transfers.Count);
+            bool notEmpty = Transfers.TryDequeue(out TransferInfo curTransfer);
+            
+            Debug.WriteLine(notEmpty);
+            while (notEmpty && curTransfer.Cancel)
+            {
+                notEmpty = Transfers.TryDequeue(out curTransfer);
+            }
+
+            if (!notEmpty)
             {
                 working = false;
                 return;
             }
-
-            var curTransfer = Transfers.First();
-            Transfers.RemoveAt(0);
-
+            
             working = true;
             curTrans = curTransfer;
 
@@ -329,8 +337,7 @@ namespace DirectSFTP
         {
             transfer.Cancel = true;
             
-            Transfers.RemoveAll(t => t.Id == transfer.Id);
-            if (curTrans != null && curTrans.Id != transfer.Id) TransferEvents.Remove(transfer.Id);
+            if (curTrans != null && curTrans.Id != transfer.Id) TransferEvents.TryRemove(transfer.Id, out _);
         }
 
         // get the directory name for the server path (.../a/b -> .../a ; .../a/b.ext -> .../a)
@@ -389,7 +396,7 @@ namespace DirectSFTP
                 }
             }
             transfer.Size = totalSize / 1000000.0;
-            transfer.Status = "Downloading";
+            transfer.Status = "Uploading";
             double totalWrote = 0;
 
             Debug.WriteLine("Uploading files");
@@ -663,7 +670,12 @@ namespace DirectSFTP
             {
                 foreach (var item in transfer.FilesToDelete)
                 {
-                    if (transfer.Cancel) break;
+                    if (transfer.Cancel)
+                    {
+                        Debug.WriteLine("Cancelled");
+                        break;
+                    }
+                    Debug.WriteLine("Cancelled > " + transfer.Cancel);
                     if (item.IsFile)
                     {
                         DeleteFile(item.FileInfo.FullName);
@@ -680,7 +692,7 @@ namespace DirectSFTP
                     }
                     else
                     {
-                        DeleteDirectory(item.FileInfo.FullName);
+                        DeleteDirectory(item.FileInfo.FullName,transfer);
                     }
                     deleted++;
                     transfer.Progress = deleted * 100.0 / totalSize;
@@ -717,7 +729,7 @@ namespace DirectSFTP
             session.Delete(path);
         }
 
-        private void DeleteDirectory(string dir)
+        private void DeleteDirectory(string dir, TransferInfo transfer)
         {
             List<SftpFile> allFiles = new();
             try
@@ -733,6 +745,10 @@ namespace DirectSFTP
             // first delete all files
             foreach (SftpFile file in allFiles)
             {
+                if (transfer.Cancel)
+                {
+                    return;
+                }
                 if (file.IsDirectory == false)
                 {
                     try
@@ -786,7 +802,7 @@ namespace DirectSFTP
             working = false;
             if (TransferEvents.ContainsKey(curTrans.Id))
             {
-                TransferEvents.Remove(curTrans.Id);
+                TransferEvents.TryRemove(curTrans.Id, out _);
             }
             curTrans = null;
             

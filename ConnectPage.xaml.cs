@@ -7,6 +7,8 @@ using SharpHook;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Platform;
 using Renci.SshNet;
+using System.Collections.Specialized;
+using System.Diagnostics.CodeAnalysis;
 
 namespace DirectSFTP;
 
@@ -29,8 +31,8 @@ public partial class ConnectPage : ContentPage
         sftp = SFTP.GetInstance();
 
         AddHooks();
-
         SetupDirView();
+        InitSortingOptions();
 
         Loaded += (a, b) =>
         {
@@ -46,7 +48,9 @@ public partial class ConnectPage : ContentPage
 
         Command onClear = new Command(() => Dispatcher.Dispatch(()=>dirView.SelectedItems.Clear()));
         selectedOptions = new(this,selectionStack,onClear);
-        InitSortingOptions();
+        
+        Debug.WriteLine("setup");
+        
 
 #if WINDOWS
         AddDropOptionsWindows();
@@ -114,6 +118,7 @@ public partial class ConnectPage : ContentPage
     }
     private async void UpdateDir(string dir)
     {
+        Debug.WriteLine("Updating dir");
         IEnumerable<SftpFile> files;
         try
         {
@@ -134,7 +139,7 @@ public partial class ConnectPage : ContentPage
             Title = dir;
         });
 
-        dirAllElements.Clear();
+        dirElements.Clear();
         string thumbFolder = SFTP.GetThumbnailFolder(dir);
 
         if (sortingOptions.CurSorting != null)
@@ -147,7 +152,7 @@ public partial class ConnectPage : ContentPage
         {
             if (file.Name.StartsWith('.')) continue;
 
-            dirAllElements.Add(new()
+            dirElements.Add(new()
             {
                 FileInfo = file,
                 
@@ -167,33 +172,41 @@ public partial class ConnectPage : ContentPage
                 string thumbnail = Path.Join(thumbFolder, file.Name);
                 if (File.Exists(thumbnail))
                 {
-                    dirAllElements.Last().ImagePath = thumbnail;
+                    dirElements.Last().ImagePath = thumbnail;
                 }
-                if (i < 6 && dirAllElements.Last().TriedDownload == false) DownloadThumbnail(dirAllElements.Last());
+                if (i < 6 && dirElements.Last().TriedDownload == false) DownloadThumbnail(dirElements.Last());
             }
             else if (file.IsDirectory==false)
             {
-                dirAllElements.Last().ImagePath = "documents.png";
+                dirElements.Last().ImagePath = "documents.png";
             }
 
             i++;
             
         }
 
-        SetShowedDirItems(search.Text);
+        dirAllElements.Clear();
+        foreach (var item  in dirElements)
+        {
+            dirAllElements.Add(item);
+        }
+
+        if (search.Text!=null) SetShowedDirItems(search.Text);
+        Debug.WriteLine(dirElements.Count);
     }
 
-    private void SetShowedDirItems(string searchText)
+    private void SetShowedDirItems([NotNull] string searchText)
     {
+        
         dirElements.Clear();
         foreach (DirectoryElementInfo item in dirAllElements)
         {
-            Debug.WriteLine(item.FileInfo.Name + "<<");
-            if (searchText == null || item.FileInfo.Name.StartsWith(searchText))
-            {
+
+            if (item.FileInfo.Name.StartsWith(searchText))
                 dirElements.Add(item);
-            }
         }
+        
+        Debug.WriteLine(dirElements.Count);
     }
 
     public void CreateTransferButton(TransferInfo transfer)
@@ -229,8 +242,11 @@ public partial class ConnectPage : ContentPage
                 Debug.WriteLine("Removing transfer " + "Error");
                 transfers.Remove(transfer);
             }
-            else if (b.Item2 != TransferEventType.CalculatingDistances)
+            else if (b.Item2 == TransferEventType.CalculatingDistances)
             {
+                TransferInfo t = (TransferInfo) a;
+
+                Debug.WriteLine(t.Status+"<<<");
                 transfer.UpdateProgress();
             }
 
@@ -462,7 +478,7 @@ public partial class ConnectPage : ContentPage
             }
             else if (b.Data.KeyCode == SharpHook.Native.KeyCode.VcF5)
             {
-                UpdateDir(SFTP.CurDir);
+                Dispatcher.Dispatch(() => UpdateDir(SFTP.CurDir));
             }
         };
 
@@ -472,13 +488,21 @@ public partial class ConnectPage : ContentPage
 
             if (b.Data.Button == SharpHook.Native.MouseButton.Button4)
             {
-                OnParentFolderClick(null, null);
+                Dispatcher.Dispatch(() =>
+                {
+                    OnParentFolderClick(null, null);
+                });
             }
             else if (b.Data.Button == SharpHook.Native.MouseButton.Button5 && prevPaths.Count > 0)
             {
-                UpdateDir(prevPaths.First());
-                prevPaths.Pop();
+                Dispatcher.Dispatch(() =>
+                {
+                    UpdateDir(prevPaths.First());
+                    prevPaths.Pop();
+                });
+                
             }
+            Debug.WriteLine(dirElements.Count);
         };
     }
 
@@ -493,6 +517,7 @@ public partial class ConnectPage : ContentPage
     }
     private void SetupDirView()
     {
+        
         dirView.ItemsSource = dirElements;
         transView.ItemsSource = transfers;
         dirView.Scrolled += (a, b) =>
