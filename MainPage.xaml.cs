@@ -53,9 +53,13 @@ public partial class MainPage : ContentPage
         {
             await DisplayAlert("Alert", "You haven't selected a download folder", "OK");
         }
-        else
+        else if (isConnected)
         {
             Dispatcher.Dispatch(() => Navigation.PushAsync(new ConnectPage()));
+        }
+        else
+        {
+            await DisplayAlert("Alert", "Couldn't connect", "OK");
         }
 
 

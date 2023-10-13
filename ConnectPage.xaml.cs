@@ -14,9 +14,9 @@ namespace DirectSFTP;
 
 public partial class ConnectPage : ContentPage
 {
-    private ObservableCollection<DirectoryElementInfo> dirElements = new();
-    private ObservableCollection<DirectoryElementInfo> dirAllElements = new();
-    private ObservableCollection<TransferInfo> transfers = new();
+    private SafeObservableCollection<DirectoryElementInfo> dirElements = new();
+    private SafeObservableCollection<DirectoryElementInfo> dirAllElements = new();
+    private SafeObservableCollection<TransferInfo> transfers = new();
     private SFTP sftp;
     private SelectedOptions selectedOptions;
     private Stack<string> prevPaths;
@@ -139,7 +139,8 @@ public partial class ConnectPage : ContentPage
             Title = dir;
         });
 
-        dirElements.Clear();
+        dirElements.Work(a => a.Clear());
+
         string thumbFolder = SFTP.GetThumbnailFolder(dir);
 
         if (sortingOptions.CurSorting != null)
@@ -152,7 +153,7 @@ public partial class ConnectPage : ContentPage
         {
             if (file.Name.StartsWith('.')) continue;
 
-            dirElements.Add(new()
+            dirElements.Work(a => a.Add(new()
             {
                 FileInfo = file,
                 
@@ -163,16 +164,14 @@ public partial class ConnectPage : ContentPage
                         UpdateDir(file.FullName);
                     }
                 })
-                
-
-            });
+            }));
             
             if (ImageHelper.IsImage(file.Name))
             {
                 string thumbnail = Path.Join(thumbFolder, file.Name);
                 if (File.Exists(thumbnail))
                 {
-                    dirElements.Last().ImagePath = thumbnail;
+                    dirElements.Work(a => a.Last().ImagePath = thumbnail);
                 }
                 if (i < 6 && dirElements.Last().TriedDownload == false) DownloadThumbnail(dirElements.Last());
             }
@@ -180,33 +179,41 @@ public partial class ConnectPage : ContentPage
             {
                 dirElements.Last().ImagePath = "documents.png";
             }
-
             i++;
-            
         }
 
-        dirAllElements.Clear();
-        foreach (var item  in dirElements)
+        dirAllElements.Work(a => a.Clear());
+
+        dirElements.Work(a =>
         {
-            dirAllElements.Add(item);
-        }
+            foreach (var item in a)
+            {
+                dirAllElements.Work(a => a.Add(item));
+            }
+        });
+
 
         if (search.Text!=null) SetShowedDirItems(search.Text);
-        Debug.WriteLine(dirElements.Count);
     }
 
     private void SetShowedDirItems([NotNull] string searchText)
     {
-        
-        dirElements.Clear();
-        foreach (DirectoryElementInfo item in dirAllElements)
-        {
 
-            if (item.FileInfo.Name.StartsWith(searchText))
-                dirElements.Add(item);
-        }
-        
-        Debug.WriteLine(dirElements.Count);
+        dirElements.Work(a => a.Clear());
+
+        dirAllElements.Work(a =>
+        {
+            foreach (var item in a)
+            {
+                dirElements.Work(a =>
+                {
+                    if (item.FileInfo.Name.StartsWith(searchText))
+                        a.Add(item);
+
+                });
+            }
+        });
+
     }
 
     public void CreateTransferButton(TransferInfo transfer)
@@ -216,17 +223,17 @@ public partial class ConnectPage : ContentPage
             sftp.CancelTransfer(transfer);
             if (SFTP.curTrans != null && SFTP.curTrans.Id != transfer.Id)
             {
-                transfers.Remove(transfer);
+                transfers.Work( a => a.Remove(transfer));
             }
         });
-        transfers.Add(transfer);
+        transfers.Work(a => a.Add(transfer));
 
         sftp.TransferEvents[transfer.Id] += (object a, Tuple<int, TransferEventType> b) =>
         {
             if (b.Item2 == TransferEventType.Cancelled)
             {
                 Debug.WriteLine("Removing transfer " + "Cancelled");
-                transfers.Remove(transfer);
+                transfers.Work(a => a.Remove(transfer));
             }
             else if (b.Item2 == TransferEventType.Progress)
             {
@@ -235,12 +242,12 @@ public partial class ConnectPage : ContentPage
             else if (b.Item2 == TransferEventType.Finished)
             {
                 Debug.WriteLine("Removing transfer " + " Finished");
-                transfers.Remove(transfer);
+                transfers.Work(a => a.Remove(transfer));
             }
             else if (b.Item2 == TransferEventType.Error)
             {
                 Debug.WriteLine("Removing transfer " + "Error");
-                transfers.Remove(transfer);
+                transfers.Work(a => a.Remove(transfer));
             }
             else if (b.Item2 == TransferEventType.CalculatingDistances)
             {
@@ -502,7 +509,6 @@ public partial class ConnectPage : ContentPage
                 });
                 
             }
-            Debug.WriteLine(dirElements.Count);
         };
     }
 
@@ -518,15 +524,16 @@ public partial class ConnectPage : ContentPage
     private void SetupDirView()
     {
         
-        dirView.ItemsSource = dirElements;
-        transView.ItemsSource = transfers;
+        dirView.ItemsSource = dirElements.GetCollection();
+        transView.ItemsSource = transfers.GetCollection();
         dirView.Scrolled += (a, b) =>
         {
+            var elements = dirElements.GetCollection();
             for (int i = b.FirstVisibleItemIndex; i <= b.LastVisibleItemIndex; i++)
             {
-                if (i < dirElements.Count && i >= 0 && dirElements[i].ImgUpdated == false)
+                if (i < elements.Count && i >= 0 && elements[i].ImgUpdated == false)
                 {
-                    var fileInfo = dirElements[i];
+                    var fileInfo = elements[i];
 
                     if (ImageHelper.IsImage(fileInfo.FileInfo.Name) 
                         && fileInfo.TriedDownload == false) DownloadThumbnail(fileInfo);
@@ -537,23 +544,31 @@ public partial class ConnectPage : ContentPage
 
     private void SortByDate(object sender, EventArgs e)
     {
-        var items = new List<DirectoryElementInfo>(dirElements);
-        items.Sort((a,b) => {return b.FileInfo.LastWriteTime.CompareTo(a.FileInfo.LastWriteTime); });
-        dirElements.Clear();
-        foreach(var item in items)
+        dirElements.Work(a =>
         {
-            dirElements.Add(item);
-        }
+            var items = new List<DirectoryElementInfo>(a);
+            items.Sort((a, b) => { return b.FileInfo.LastWriteTime.CompareTo(a.FileInfo.LastWriteTime); });
+            a.Clear();
+            foreach (var item in items)
+            {
+                a.Add(item);
+            }
+        });
+        
     }
     private void SortByName(object sender, EventArgs e)
     {
-        var items = new List<DirectoryElementInfo>(dirElements);
-        items.Sort((a, b) => { return a.FileInfo.Name.CompareTo(b.FileInfo.Name); });
-        dirElements.Clear();
-        foreach (var item in items)
+        dirElements.Work(a =>
         {
-            dirElements.Add(item);
-        }
+            var items = new List<DirectoryElementInfo>(a);
+            items.Sort((a, b) => { return a.FileInfo.Name.CompareTo(b.FileInfo.Name); });
+            a.Clear();
+            foreach (var item in items)
+            {
+                a.Add(item);
+            }
+        });
+        
     }
     private void InitSortingOptions()
     {
