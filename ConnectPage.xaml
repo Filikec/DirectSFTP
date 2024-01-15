@@ -35,7 +35,7 @@
 
                 <HorizontalStackLayout Grid.Column="1" HorizontalOptions="EndAndExpand">
                     <Image WidthRequest="32" HeightRequest="32" Source="search.png"/>
-                    <Entry x:Name="search"  Placeholder="Search" TextChanged="OnSearchChanged"></Entry>
+                    <Entry MinimumWidthRequest="100" x:Name="search" Placeholder="Search" TextChanged="OnSearchChanged"></Entry>
                 </HorizontalStackLayout>
             </Grid>
             

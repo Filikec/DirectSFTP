@@ -142,19 +142,34 @@ namespace DirectSFTP
 
         public static string CreateThumbnailFile(string sourceImg)
         {
+            Debug.WriteLine("Creating thumbnail for " + sourceImg);
+            Debug.WriteLine(FileSystem.CacheDirectory);
             string output = Path.Join(FileSystem.CacheDirectory, "DirectSFTP");
+            if (!Path.Exists(output))
+            {
+                Directory.CreateDirectory(output);
+            }
             output = Path.Join(output,Path.GetFileName(sourceImg));
 
             Debug.WriteLine("Creating thumbnail for " + sourceImg + " and saving into " + output);
             using (var image = new MagickImage(sourceImg))
             {
+                Debug.WriteLine("Openned");
                 image.Resize(new MagickGeometry(THUMBNAIL_SIZE, THUMBNAIL_SIZE)
                 {
                     IgnoreAspectRatio = false
                 });
-
+                Debug.WriteLine("Resized");
                 // Save the resized image
-                image.Write(output);
+                try
+                {
+                    image.Write(output);
+                }catch (Exception ex)
+                {
+                    Debug.WriteLine(ex);
+                }
+                
+                
             }
             
             return output;

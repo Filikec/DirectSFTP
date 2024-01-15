@@ -207,7 +207,7 @@ public partial class ConnectPage : ContentPage
             {
                 dirElements.Work(a =>
                 {
-                    if (item.FileInfo.Name.StartsWith(searchText))
+                    if (item.FileInfo.Name.Contains(searchText,StringComparison.OrdinalIgnoreCase))
                         a.Add(item);
 
                 });
