@@ -36,7 +36,10 @@ public partial class MainPage : ContentPage
 
     public async void OnConnect(object sender, EventArgs ars)
     {
-        var isConnected = await Task.Run(() =>
+
+        
+
+        var isConnected = Task.Run(() =>
         {
             try
             {
@@ -49,11 +52,15 @@ public partial class MainPage : ContentPage
             
         });
 
+        await DisplayAlert("Alert", "Connecting...", "OK");
+        var res = await isConnected;
+        
+
         if (Preferences.Default.Get("DownloadFolder","") == "")
         {
             await DisplayAlert("Alert", "You haven't selected a download folder", "OK");
         }
-        else if (isConnected)
+        else if (res)
         {
             Dispatcher.Dispatch(() => Navigation.PushAsync(new ConnectPage()));
         }

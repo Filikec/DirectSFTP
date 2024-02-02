@@ -10,7 +10,6 @@ namespace DirectSFTP
         public SftpFile FileInfo { get; set; }
         public string ImagePath { get; set; }
         public Command OnClick { get; set; }
-
         public double Size { get { return FileInfo.Length / 1000000.0; }  }
         public bool IsFile { get { return !FileInfo.IsDirectory; } }
 
